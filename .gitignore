@@ -1,0 +1,11 @@
+.DS_Store
+xcuserdata/
+*.xcuserstate
+build/
+DerivedData/
+
+# Local state kept out of the Unison sync
+*.nosync
+
+# Unison conflict copies
+* 2

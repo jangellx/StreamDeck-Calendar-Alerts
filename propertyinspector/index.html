@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            background: #2d2d2d;
+            color: #d8d8d8;
+            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+            font-size: 9pt;
+            padding: 8px 12px;
+        }
+
+        .section-label {
+            color: #999;
+            font-size: 8pt;
+            text-transform: uppercase;
+            letter-spacing: 0.6px;
+            margin: 10px 0 6px;
+        }
+
+        .calendar-row {
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            padding: 4px 2px;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .calendar-row input[type="checkbox"] {
+            width: 13px;
+            height: 13px;
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+
+        .dot {
+            width: 9px;
+            height: 9px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+
+        .calendar-name {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .hint {
+            color: #777;
+            font-size: 8pt;
+            margin-top: 10px;
+            font-style: italic;
+        }
+
+        .loading {
+            color: #777;
+            font-style: italic;
+            margin-top: 6px;
+        }
+    </style>
+</head>
+<body>
+    <div class="section-label">Show events from</div>
+    <div id="list"><div class="loading">Loading calendars…</div></div>
+    <div class="hint" id="hint"></div>
+
+    <script>
+        var ws, piContext, actionID;
+        var allCalendars = [];
+        var selectedIDs = [];
+
+        function connectElgatoStreamDeckSocket(inPort, inUUID, inRegisterEvent, inInfo, inActionInfo) {
+            var actionInfo = JSON.parse(inActionInfo);
+            piContext = actionInfo.context;
+            actionID  = actionInfo.action;
+
+            var settings = (actionInfo.payload && actionInfo.payload.settings) || {};
+            selectedIDs = settings.selectedCalendars || [];
+
+            ws = new WebSocket('ws://127.0.0.1:' + inPort);
+
+            ws.onopen = function() {
+                ws.send(JSON.stringify({ event: inRegisterEvent, uuid: inUUID }));
+                // Ask the plugin for the current calendar list.
+                ws.send(JSON.stringify({
+                    event: 'sendToPlugin',
+                    action: actionID,
+                    context: piContext,
+                    payload: { request: 'getCalendars' }
+                }));
+            };
+
+            ws.onmessage = function(evt) {
+                var msg = JSON.parse(evt.data);
+                if (msg.event === 'sendToPropertyInspector' && msg.payload) {
+                    if (msg.payload.needsPermission) {
+                        document.getElementById('list').innerHTML =
+                            '<div class="loading">⚠️ Calendar access not granted.<br>' +
+                            'Check System Settings → Privacy → Calendars.</div>';
+                        return;
+                    }
+                    if (msg.payload.calendars) {
+                        allCalendars = msg.payload.calendars;
+                        render();
+                    }
+                } else if (msg.event === 'didReceiveSettings') {
+                    var s = msg.payload && msg.payload.settings || {};
+                    selectedIDs = s.selectedCalendars || [];
+                    render();
+                }
+            };
+        }
+
+        function render() {
+            var list = document.getElementById('list');
+            list.innerHTML = '';
+
+            if (allCalendars.length === 0) {
+                list.innerHTML = '<div class="loading">No calendars found.</div>';
+                updateHint();
+                return;
+            }
+
+            allCalendars.forEach(function(cal) {
+                var isChecked = selectedIDs.length === 0 || selectedIDs.indexOf(cal.id) !== -1;
+
+                var row = document.createElement('label');
+                row.className = 'calendar-row';
+
+                var cb = document.createElement('input');
+                cb.type = 'checkbox';
+                cb.checked = isChecked;
+                cb.addEventListener('change', function() {
+                    if (cb.checked) {
+                        if (selectedIDs.indexOf(cal.id) === -1) selectedIDs.push(cal.id);
+                    } else {
+                        selectedIDs = selectedIDs.filter(function(id) { return id !== cal.id; });
+                    }
+                    // Store empty array when everything is checked (means "all").
+                    var allChecked = allCalendars.every(function(c) {
+                        return selectedIDs.indexOf(c.id) !== -1;
+                    });
+                    save(allChecked ? [] : selectedIDs);
+                });
+
+                var dot = document.createElement('div');
+                dot.className = 'dot';
+                dot.style.backgroundColor = cal.color || '#888';
+
+                var name = document.createElement('span');
+                name.className = 'calendar-name';
+                name.textContent = cal.title;
+
+                row.appendChild(cb);
+                row.appendChild(dot);
+                row.appendChild(name);
+                list.appendChild(row);
+            });
+
+            updateHint();
+        }
+
+        function save(ids) {
+            selectedIDs = ids;
+            ws.send(JSON.stringify({
+                event: 'setSettings',
+                context: piContext,
+                payload: { selectedCalendars: ids }
+            }));
+            updateHint();
+        }
+
+        function updateHint() {
+            var hint = document.getElementById('hint');
+            if (selectedIDs.length === 0) {
+                hint.textContent = 'All calendars shown';
+            } else {
+                hint.textContent = selectedIDs.length + ' calendar' +
+                    (selectedIDs.length !== 1 ? 's' : '') + ' selected';
+            }
+        }
+    </script>
+</body>
+</html>
