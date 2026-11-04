@@ -64,7 +64,7 @@
             margin-top: 6px;
         }
 
-        select, input[type="text"] {
+        select, input[type="text"], textarea {
             width: 100%;
             background: #3d3d3d;
             color: #d8d8d8;
@@ -73,8 +73,9 @@
             padding: 4px 6px;
             font: inherit;
         }
-        input[type="text"] { margin-top: 6px; }
-        select:focus, input[type="text"]:focus { outline: none; border-color: #888; }
+        input[type="text"], textarea { margin-top: 6px; }
+        textarea { resize: vertical; }
+        select:focus, input[type="text"]:focus, textarea:focus { outline: none; border-color: #888; }
 
         .drop-zone {
             display: flex;
@@ -112,11 +113,14 @@
     <select id="noEventsStyle">
         <option value="smile">Smiling calendar (light)</option>
         <option value="smile-dark">Smiling calendar (dark)</option>
-        <option value="check">Checkmark</option>
+        <option value="check">Checkmark Calendar</option>
+        <option value="check-emoji">Checkmark ✅</option>
         <option value="thumbs">Thumbs up 👍</option>
         <option value="text">Text only</option>
+        <option value="message">Your own message…</option>
         <option value="custom">Your own image…</option>
     </select>
+    <textarea id="noEventsMessage" class="hidden" rows="2" placeholder="What the key should say" spellcheck="true"></textarea>
     <div id="dropZone" class="drop-zone hidden">
         <img id="customPreview" alt="">
         <div>Drag an image here, or <span class="link" id="chooseImage">choose a file</span>.</div>
@@ -139,7 +143,8 @@
             selectedCalendars: [],      // empty means "all calendars"
             openApp: 'com.apple.iCal',  // a bundle ID, or 'url'
             openURL: '',
-            noEventsStyle: 'smile',     // smile | smile-dark | check | thumbs | text | custom
+            noEventsStyle: 'smile',     // smile | smile-dark | check | check-emoji | thumbs | text | message | custom
+            noEventsMessage: '',        // the key's text when noEventsStyle is 'message'
             noEventsImage: ''           // data: URL when noEventsStyle is 'custom'
         };
 
@@ -149,6 +154,7 @@
             settings.openApp = s.openApp || 'com.apple.iCal';
             settings.openURL = s.openURL || '';
             settings.noEventsStyle = s.noEventsStyle || 'smile';
+            settings.noEventsMessage = s.noEventsMessage || '';
             settings.noEventsImage = s.noEventsImage || '';
         }
 
@@ -349,6 +355,10 @@
         function renderNoEvents() {
             document.getElementById('noEventsStyle').value = settings.noEventsStyle;
             document.getElementById('dropZone').classList.toggle('hidden', settings.noEventsStyle !== 'custom');
+            var messageField = document.getElementById('noEventsMessage');
+            messageField.classList.toggle('hidden', settings.noEventsStyle !== 'message');
+            // Don't overwrite what the user is in the middle of typing.
+            if (document.activeElement !== messageField) messageField.value = settings.noEventsMessage;
             var preview = document.getElementById('customPreview');
             if (settings.noEventsImage) {
                 preview.src = settings.noEventsImage;
@@ -361,6 +371,15 @@
             settings.noEventsStyle = e.target.value;
             renderNoEvents();
             save();
+            if (settings.noEventsStyle === 'message') document.getElementById('noEventsMessage').focus();
+        });
+
+        // Save the message shortly after typing pauses, so the key updates as you type.
+        var messageTimer = null;
+        document.getElementById('noEventsMessage').addEventListener('input', function(e) {
+            settings.noEventsMessage = e.target.value;
+            clearTimeout(messageTimer);
+            messageTimer = setTimeout(save, 400);
         });
 
         var dropZone = document.getElementById('dropZone');

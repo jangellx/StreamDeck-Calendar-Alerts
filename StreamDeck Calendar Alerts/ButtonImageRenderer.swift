@@ -76,20 +76,29 @@ final class ButtonImageRenderer {
     // What the key shows when there are no more events today. Styles:
     //   "smile"      – the bundled smiling calendar, light version (default)
     //   "smile-dark" – the same, dark version
-    //   "check"      – a drawn calendar with a checkmark and "All clear"
+    //   "check"      – a drawn red calendar with a white checkmark and "All clear"
+    //   "check-emoji" – a checkmark emoji
     //   "thumbs"     – a thumbs-up emoji
-    //   "text"       – just the words "No more events"
+    //   "text"       – the words "No more events today"
+    //   "message"    – the user's own words, passed in as customMessage
     //   "custom"     – the user's own image, passed in as a data: URL
-    func renderNoEvents(style: String, customImage: String = "") -> String {
+    static let defaultNoEventsText = "No more events today"
+
+    func renderNoEvents(style: String, customImage: String = "", customMessage: String = "") -> String {
         switch style {
         case "custom" where customImage.hasPrefix("data:image/"):
             return customImage
+        case "message":
+            let message = customMessage.trimmingCharacters(in: .whitespacesAndNewlines)
+            return renderMessage(message.isEmpty ? Self.defaultNoEventsText : message)
         case "check":
             return renderAllClear()
+        case "check-emoji":
+            return renderEmoji("✅")
         case "thumbs":
             return renderEmoji("👍")
         case "text":
-            return renderNoEventsText()
+            return renderMessage(Self.defaultNoEventsText)
         case "smile-dark":
             return bundledImage("no-events-dark") ?? renderAllClear()
         default:
@@ -101,9 +110,9 @@ final class ButtonImageRenderer {
         guard let ctx = makeKeyContext() else { return "" }
         Self.fillKeyBackground(ctx, size: size)
         let content = Self.drawCalendar(ctx, in: CGRect(x: 19, y: 24, width: 34, height: 34),
-                                        page: nil, line: Palette.green,
-                                        header: Palette.green, rings: Palette.green)
-        Self.drawCheck(ctx, in: content, color: Palette.green)
+                                        page: nil, line: Palette.red,
+                                        header: Palette.red, rings: Palette.red)
+        Self.drawCheck(ctx, in: content, color: Palette.white)
         withNSGraphicsContext(ctx) {
             draw("All clear", font: .boldSystemFont(ofSize: 13), color: .white, alignment: .center,
                  in: CGRect(x: 2, y: 3, width: 68, height: 18))
@@ -122,13 +131,13 @@ final class ButtonImageRenderer {
         return toPNGDataURI(ctx)
     }
 
-    private func renderNoEventsText() -> String {
+    // Text centered on the key, as large as fits.
+    private func renderMessage(_ text: String) -> String {
         guard let ctx = makeKeyContext() else { return "" }
         Self.fillKeyBackground(ctx, size: size)
         withNSGraphicsContext(ctx) {
-            draw("No more\nevents", font: .boldSystemFont(ofSize: 14),
-                 color: NSColor(white: 0.85, alpha: 1), alignment: .center,
-                 in: CGRect(x: 2, y: 18, width: 68, height: 38))
+            drawFitted(text, color: NSColor(white: 0.88, alpha: 1),
+                       in: CGRect(x: 4, y: 4, width: 64, height: 64))
         }
         return toPNGDataURI(ctx)
     }
@@ -165,7 +174,6 @@ final class ButtonImageRenderer {
     enum Palette {
         static let keyBackground = CGColor(red: 0.10, green: 0.10, blue: 0.12, alpha: 1)
         static let red    = CGColor(red: 0.90, green: 0.15, blue: 0.15, alpha: 1)
-        static let green  = CGColor(red: 0.30, green: 0.80, blue: 0.52, alpha: 1)
         static let white  = CGColor(red: 1, green: 1, blue: 1, alpha: 1)
     }
 
@@ -217,17 +225,33 @@ final class ButtonImageRenderer {
             ctx.fillPath()
         }
 
-        return CGRect(x: body.minX, y: body.minY, width: body.width, height: body.height - headerHeight)
+        // The page's open interior: below the header and, for an outlined page,
+        // inside the outline.
+        let inset = line == nil ? 0 : lineWidth
+        return CGRect(x: body.minX + inset, y: body.minY + inset,
+                      width: body.width - inset * 2, height: body.height - headerHeight - inset)
     }
 
+    // Draws a checkmark centered in `r`. The check is laid out in its own box
+    // (1.35:1, about 60% of r) and that box is centered, so the visible mark,
+    // round ends included, has equal margins on opposite sides.
     static func drawCheck(_ ctx: CGContext, in r: CGRect, color: CGColor) {
+        let aspect: CGFloat = 1.35
+        var w = r.width * 0.60
+        var h = w / aspect
+        if h > r.height * 0.60 {
+            h = r.height * 0.60
+            w = h * aspect
+        }
+        let origin = CGPoint(x: r.midX - w / 2, y: r.midY - h / 2)
+
         ctx.setStrokeColor(color)
-        ctx.setLineWidth(min(r.width, r.height) * 0.16)
+        ctx.setLineWidth(min(r.width, r.height) * 0.17)
         ctx.setLineCap(.round)
         ctx.setLineJoin(.round)
-        ctx.move(to: CGPoint(x: r.minX + r.width * 0.28, y: r.minY + r.height * 0.52))
-        ctx.addLine(to: CGPoint(x: r.minX + r.width * 0.45, y: r.minY + r.height * 0.30))
-        ctx.addLine(to: CGPoint(x: r.minX + r.width * 0.74, y: r.minY + r.height * 0.72))
+        ctx.move(to: CGPoint(x: origin.x, y: origin.y + h * 0.50))
+        ctx.addLine(to: CGPoint(x: origin.x + w * 0.36, y: origin.y))
+        ctx.addLine(to: CGPoint(x: origin.x + w, y: origin.y + h))
         ctx.strokePath()
     }
 
@@ -266,6 +290,40 @@ final class ButtonImageRenderer {
             .paragraphStyle: para
         ]
         NSAttributedString(string: text, attributes: attrs).draw(in: rect)
+    }
+
+    // Draws bold, centered text as large as fits, centered vertically in rect.
+    // Line breaks the user typed are kept. Sizing prefers whole words: the
+    // largest size from 16 pt down to 10 pt where no word has to be split; if
+    // a word is too long even at 10 pt, the largest size from 16 pt down to 7 pt
+    // where the text fits with long words broken.
+    private func drawFitted(_ text: String, color: NSColor, in rect: CGRect) {
+        let para = NSMutableParagraphStyle()
+        para.alignment = .center
+        para.lineBreakMode = .byWordWrapping
+        let words = text.split(whereSeparator: \.isWhitespace).map(String.init)
+
+        func layout(_ fontSize: CGFloat) -> (text: NSAttributedString, height: CGFloat, wordsFit: Bool) {
+            let font = NSFont.boldSystemFont(ofSize: fontSize)
+            let attributed = NSAttributedString(string: text, attributes: [
+                .font: font, .foregroundColor: color, .paragraphStyle: para
+            ])
+            let height = ceil(attributed.boundingRect(
+                with: CGSize(width: rect.width, height: .greatestFiniteMagnitude),
+                options: [.usesLineFragmentOrigin, .usesFontLeading]).height)
+            let widestWord = words.map { ($0 as NSString).size(withAttributes: [.font: font]).width }.max() ?? 0
+            return (attributed, height, widestWord <= rect.width)
+        }
+
+        let sizes = stride(from: CGFloat(16), through: 7, by: -1)
+        let chosen = sizes.lazy.filter { $0 >= 10 }.map(layout).first { $0.height <= rect.height && $0.wordsFit }
+            ?? sizes.lazy.map(layout).first { $0.height <= rect.height }
+            ?? layout(7)
+
+        // draw(in:) starts at the top of its rect and clips at the bottom, so give
+        // it room below the measured height rather than an exact fit.
+        let top = rect.minY + max(0, (rect.height - chosen.height) / 2) + chosen.height
+        chosen.text.draw(in: CGRect(x: rect.minX, y: rect.minY - 8, width: rect.width, height: top - rect.minY + 8))
     }
 
     // Returns a strip color for 1–59 min, nil for ≥60 min (no strip) and 0 (handled separately).

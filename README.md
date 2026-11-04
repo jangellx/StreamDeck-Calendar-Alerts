@@ -44,9 +44,9 @@ Select the key in the Stream Deck app to see its settings. Each key has its own,
 - **When pressed, open**: Apple Calendar, any other calendar app you have installed (such as Fantastical, BusyCal or Outlook), or a web page or URL (such as `calendar.google.com`).
 - **When there are no more events**: choose what the key shows.
 
-  <img src="docs/images/no-events-smile.png" width="56" alt="Smiling calendar (light)"> <img src="docs/images/no-events-smile-dark.png" width="56" alt="Smiling calendar (dark)"> <img src="docs/images/no-events-check.png" width="56" alt="Checkmark"> <img src="docs/images/no-events-text.png" width="56" alt="Text only">
+  <img src="docs/images/no-events-smile.png" width="56" alt="Smiling calendar (light)"> <img src="docs/images/no-events-smile-dark.png" width="56" alt="Smiling calendar (dark)"> <img src="docs/images/no-events-check.png" width="56" alt="Checkmark Calendar"> <img src="docs/images/no-events-text.png" width="56" alt="Text only">
 
-  The choices are a smiling calendar (light or dark), a checkmark, a thumbs-up 👍, or just the words "No more events". You can also use your own image: choose **Your own image…**, then drag an image file onto the settings panel or click **choose a file**. It's scaled to fit the key.
+  The choices are a smiling calendar (light or dark), a checkmark calendar, a checkmark ✅ or thumbs-up 👍 emoji, the words "No more events today", or a message of your own. Choose **Your own message…** and type what the key should say; it's sized to fit the key, and line breaks you type are kept. You can also use your own image: choose **Your own image…**, then drag an image file onto the settings panel or click **choose a file**. It's scaled to fit the key.
 
 ## Install
 

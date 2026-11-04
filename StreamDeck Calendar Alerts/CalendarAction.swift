@@ -16,7 +16,8 @@ final class CalendarAction {
     private var selectedCalendarIDs: Set<String> = []          // empty = all calendars
     private var openApp = AppLauncher.appleCalendarID          // bundle ID, or AppLauncher.urlChoice
     private var openURL = ""
-    private var noEventsStyle = "smile"                         // smile | smile-dark | check | thumbs | text | custom
+    private var noEventsStyle = "smile"                         // smile | smile-dark | check | check-emoji | thumbs | text | message | custom
+    private var noEventsMessage = ""                            // the user's words for "message"
     private var noEventsImage = ""                              // data: URL for "custom"
 
     private static let alertMinutes: Set<Int> = [60, 30, 15, 5]
@@ -31,6 +32,7 @@ final class CalendarAction {
         openApp       = settings["openApp"] as? String ?? AppLauncher.appleCalendarID
         openURL       = settings["openURL"] as? String ?? ""
         noEventsStyle = settings["noEventsStyle"] as? String ?? "smile"
+        noEventsMessage = settings["noEventsMessage"] as? String ?? ""
         noEventsImage = settings["noEventsImage"] as? String ?? ""
         if minuteTimer != nil { update() }
     }
@@ -68,7 +70,8 @@ final class CalendarAction {
 
         guard let event = CalendarManager.nextEventFromSharedFile(filteredTo: selectedCalendarIDs) else {
             resetEventState()
-            sendImage(ButtonImageRenderer.shared.renderNoEvents(style: noEventsStyle, customImage: noEventsImage))
+            sendImage(ButtonImageRenderer.shared.renderNoEvents(style: noEventsStyle, customImage: noEventsImage,
+                                                                customMessage: noEventsMessage))
             return
         }
 
