@@ -73,6 +73,7 @@ let samples: [(String, String)] = [
     ("no-events-smile", renderer.renderNoEvents(style: "smile")),
     ("no-events-smile-dark", renderer.renderNoEvents(style: "smile-dark")),
     ("no-events-check", renderer.renderNoEvents(style: "check")),
+    ("no-events-moon", renderer.renderNoEvents(style: "moon")),
     ("no-events-text", renderer.renderNoEvents(style: "text")),
 ]
 try FileManager.default.createDirectory(at: docsDir, withIntermediateDirectories: true)

@@ -85,14 +85,16 @@ final class StreamDeckPlugin: NSObject {
         }
     }
 
-    // Everything the settings panel needs: calendars to filter by, calendar apps
-    // the key can open, and whether calendar access was refused.
+    // Everything the settings panel needs: calendars to filter by, apps the key
+    // can open, and whether calendar access was refused.
     private func sendPanelData(context: String) {
         let calendars = CalendarManager.readCalendarsFromSharedFile()
             .map { ["id": $0.id, "title": $0.title, "color": $0.hexColor] }
         sendToPropertyInspector(context: context, payload: [
             "calendars": calendars,
-            "apps": AppLauncher.installedCalendarApps(),
+            "apps": AppLauncher.suggestedApps(),
+            "webCalendars": AppLauncher.webCalendarChoices(),
+            "allApps": AppLauncher.allApps(),
             "needsPermission": CalendarManager.accessDenied()
         ])
     }

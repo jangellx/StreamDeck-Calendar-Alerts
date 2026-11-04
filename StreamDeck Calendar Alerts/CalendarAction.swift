@@ -16,7 +16,7 @@ final class CalendarAction {
     private var selectedCalendarIDs: Set<String> = []          // empty = all calendars
     private var openApp = AppLauncher.appleCalendarID          // bundle ID, or AppLauncher.urlChoice
     private var openURL = ""
-    private var noEventsStyle = "smile"                         // smile | smile-dark | check | check-emoji | thumbs | text | message | custom
+    private var noEventsStyle = "smile"                         // smile | smile-dark | check | check-emoji | thumbs | moon | text | message | custom
     private var noEventsMessage = ""                            // the user's words for "message"
     private var noEventsImage = ""                              // data: URL for "custom"
 
@@ -146,7 +146,8 @@ final class CalendarAction {
         ])
     }
 
+    // Opens the chosen app, showing the event on the key where the app supports it.
     func openConfiguredApp() {
-        AppLauncher.open(app: openApp, url: openURL)
+        AppLauncher.open(choice: openApp, url: openURL, event: currentEvent)
     }
 }

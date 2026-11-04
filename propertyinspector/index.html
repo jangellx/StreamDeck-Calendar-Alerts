@@ -73,7 +73,8 @@
             padding: 4px 6px;
             font: inherit;
         }
-        input[type="text"], textarea { margin-top: 6px; }
+        input[type="text"], textarea, #otherApp { margin-top: 6px; }
+        .hint:empty { display: none; }
         textarea { resize: vertical; }
         select:focus, input[type="text"]:focus, textarea:focus { outline: none; border-color: #888; }
 
@@ -107,7 +108,9 @@
 
     <div class="section-label">When pressed, open</div>
     <select id="openApp"></select>
+    <select id="otherApp" class="hidden"></select>
     <input id="openURL" type="text" class="hidden" placeholder="e.g. calendar.google.com" spellcheck="false">
+    <div class="hint" id="openHint"></div>
 
     <div class="section-label">When there are no more events</div>
     <select id="noEventsStyle">
@@ -116,6 +119,7 @@
         <option value="check">Checkmark Calendar</option>
         <option value="check-emoji">Checkmark ✅</option>
         <option value="thumbs">Thumbs up 👍</option>
+        <option value="moon">Crescent moon</option>
         <option value="text">Text only</option>
         <option value="message">Your own message…</option>
         <option value="custom">Your own image…</option>
@@ -133,7 +137,10 @@
         // rejects messages that use the action instance's context instead.
         var ws, piUUID, actionID;
         var allCalendars = [];
-        var apps = [];
+        var apps = [];          // installed suggestions: {id, name, group: 'calendar' | 'other', opens}
+        var webCalendars = [];  // {id: 'web:…', name, opens}
+        var allApps = [];       // every installed app, for "Another app…"
+        var openChoice = null;  // OTHER_APP while the user is choosing from every app
         var retries = 0, MAX_RETRIES = 15;
         var KEY_IMAGE_SIZE = 144;   // keys are drawn at 144×144 px
 
@@ -141,9 +148,9 @@
         // every save sends every field.
         var settings = {
             selectedCalendars: [],      // empty means "all calendars"
-            openApp: 'com.apple.iCal',  // a bundle ID, or 'url'
+            openApp: 'com.apple.iCal',  // a bundle ID, a 'web:' id, or 'url'
             openURL: '',
-            noEventsStyle: 'smile',     // smile | smile-dark | check | check-emoji | thumbs | text | message | custom
+            noEventsStyle: 'smile',     // smile | smile-dark | check | check-emoji | thumbs | moon | text | message | custom
             noEventsMessage: '',        // the key's text when noEventsStyle is 'message'
             noEventsImage: ''           // data: URL when noEventsStyle is 'custom'
         };
@@ -178,6 +185,8 @@
                 if (msg.event === 'sendToPropertyInspector' && msg.payload) {
                     if (msg.payload.apps) {
                         apps = msg.payload.apps;
+                        webCalendars = msg.payload.webCalendars || [];
+                        allApps = msg.payload.allApps || [];
                         renderOpenApp();
                     }
                     if (msg.payload.needsPermission) {
@@ -312,37 +321,115 @@
         }
 
         // MARK: App to open
+        //
+        // The menu lists installed calendar apps, installed meeting and task apps,
+        // web calendars, then "Another app…" (a second list of every installed
+        // app) and "Web page or URL…". The saved setting is just the choice's id:
+        // a bundle ID, a "web:" id, or "url".
+
+        var OTHER_APP = '__other';
+
+        function addOptions(parent, items) {
+            items.forEach(function(item) {
+                var option = document.createElement('option');
+                option.value = item.id;
+                option.textContent = item.name;
+                parent.appendChild(option);
+            });
+        }
+
+        function addGroup(select, label, items) {
+            if (!items.length) return;
+            var group = document.createElement('optgroup');
+            group.label = label;
+            addOptions(group, items);
+            select.appendChild(group);
+        }
+
+        function findChoice(id) {
+            return apps.concat(webCalendars, allApps).find(function(a) { return a.id === id; });
+        }
+
+        // The menu entry that matches the saved setting.
+        function currentOpenChoice() {
+            if (settings.openApp === 'url') return 'url';
+            if (openChoice === OTHER_APP) return OTHER_APP;
+            var listed = apps.concat(webCalendars).some(function(a) { return a.id === settings.openApp; });
+            if (listed) return settings.openApp;
+            // Before the plugin's app list arrives, the default still shows as Calendar.
+            if (!apps.length && settings.openApp === 'com.apple.iCal') return settings.openApp;
+            return OTHER_APP;
+        }
 
         function renderOpenApp() {
             var select = document.getElementById('openApp');
             select.innerHTML = '';
-            var choices = apps.length ? apps.slice() : [{ id: 'com.apple.iCal', name: 'Calendar' }];
+            var calendars = apps.filter(function(a) { return a.group === 'calendar'; });
+            if (!apps.length) calendars = [{ id: 'com.apple.iCal', name: 'Calendar' }];
+            addGroup(select, 'Calendar apps', calendars);
+            addGroup(select, 'Meetings and tasks', apps.filter(function(a) { return a.group === 'other'; }));
+            addGroup(select, 'On the web', webCalendars);
+            addGroup(select, 'Other', [
+                { id: OTHER_APP, name: 'Another app…' },
+                { id: 'url', name: 'Web page or URL…' }
+            ]);
+            var choice = currentOpenChoice();
+            select.value = choice;
 
-            // Keep a saved app that's no longer installed visible, so the
-            // setting doesn't silently change.
-            var known = choices.some(function(a) { return a.id === settings.openApp; });
-            if (!known && settings.openApp !== 'url') {
-                choices.push({ id: settings.openApp, name: settings.openApp + ' (not found)' });
+            // "Another app…": every installed app.
+            var other = document.getElementById('otherApp');
+            other.innerHTML = '';
+            var placeholder = document.createElement('option');
+            placeholder.value = '';
+            placeholder.textContent = 'Choose an app…';
+            placeholder.disabled = true;
+            other.appendChild(placeholder);
+            var everyApp = allApps.slice();
+            var saved = settings.openApp;
+            var savedIsApp = saved !== 'url' && saved.indexOf('web:') !== 0;
+            if (choice === OTHER_APP && savedIsApp && allApps.length &&
+                !everyApp.some(function(a) { return a.id === saved; })) {
+                // Keep a saved app that's no longer installed visible, so the
+                // setting doesn't silently change.
+                everyApp.unshift({ id: saved, name: saved + ' (not found)' });
             }
-            choices.push({ id: 'url', name: 'Web page or URL…' });
-
-            choices.forEach(function(a) {
-                var option = document.createElement('option');
-                option.value = a.id;
-                option.textContent = a.name;
-                select.appendChild(option);
-            });
-            select.value = settings.openApp;
+            addOptions(other, everyApp);
+            var pickedOther = choice === OTHER_APP && everyApp.some(function(a) { return a.id === saved; });
+            other.value = pickedOther ? saved : '';
+            other.classList.toggle('hidden', choice !== OTHER_APP);
 
             var urlField = document.getElementById('openURL');
             urlField.value = settings.openURL;
-            urlField.classList.toggle('hidden', settings.openApp !== 'url');
+            urlField.classList.toggle('hidden', choice !== 'url');
+
+            // Say what a press will show, for apps that can show the event.
+            var app = (choice === 'url' || (choice === OTHER_APP && !pickedOther)) ? null : findChoice(saved);
+            var hint = '';
+            if (app && app.opens === 'event') hint = 'Opens the event shown on the key.';
+            if (app && app.opens === 'day') hint = 'Opens the day of the event shown on the key.';
+            document.getElementById('openHint').textContent = hint;
         }
 
         document.getElementById('openApp').addEventListener('change', function(e) {
-            settings.openApp = e.target.value;
-            document.getElementById('openURL').classList.toggle('hidden', settings.openApp !== 'url');
+            var value = e.target.value;
+            if (value === OTHER_APP) {
+                // Nothing to save until an app is picked from the second list.
+                openChoice = OTHER_APP;
+                renderOpenApp();
+                document.getElementById('otherApp').focus();
+                return;
+            }
+            openChoice = null;
+            settings.openApp = value;
             save();
+            renderOpenApp();
+            if (value === 'url') document.getElementById('openURL').focus();
+        });
+
+        document.getElementById('otherApp').addEventListener('change', function(e) {
+            settings.openApp = e.target.value;
+            save();
+            renderOpenApp();
         });
 
         document.getElementById('openURL').addEventListener('change', function(e) {

@@ -6,6 +6,9 @@
 #                                       icons in Joe Angell's Perpetual project
 #                                       (skipped if that project isn't next to this one;
 #                                       set PERPETUAL_ICONS to its Icons folder)
+#   Images/no-events-moon               a crescent from the moon-phase photos Perpetual
+#                                       uses: NASA's Scientific Visualization Studio
+#                                       (Dial-A-Moon), which NASA asks to be credited
 #   Images/action, category             drawn by Tools/ImageTool
 #   docs/images/*.png                   sample keys for the README
 set -euo pipefail
@@ -38,6 +41,17 @@ if [ -d "${PERPETUAL_ICONS}" ] && [ -x "${ICTOOL}" ]; then
     export_icon Bandit no-events-dark 72 Dark      #   light and dark choices
 else
     echo "==> Skipping Perpetual icons (not found at ${PERPETUAL_ICONS}, or Icon Composer missing)"
+fi
+
+# Waning crescent (frame 25 of 30, new moon = 00): the brightest, thickest
+# crescent, so it reads best on a small key. The photo is on black and fills the key.
+MOON="${PERPETUAL_ICONS}/../Assets.xcassets/Moon/moon-25.imageset/moon-25.jpg"
+if [ -f "${MOON}" ]; then
+    echo "==> Exporting the crescent moon"
+    sips -s format png -z 72 72 "${MOON}" --out "${ROOT}/Images/no-events-moon.png" >/dev/null
+    sips -s format png -z 144 144 "${MOON}" --out "${ROOT}/Images/no-events-moon@2x.png" >/dev/null
+else
+    echo "==> Skipping the crescent moon (not found at ${MOON})"
 fi
 
 echo "==> Drawing action and category icons, and README samples"

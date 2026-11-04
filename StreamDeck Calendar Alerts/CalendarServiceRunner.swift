@@ -112,10 +112,30 @@ final class CalendarServiceRunner {
                     "startDate": event.startDate.timeIntervalSince1970,
                     "endDate": event.endDate.timeIntervalSince1970,
                     "identifier": event.eventIdentifier ?? "",
-                    "calendarIdentifier": event.calendar?.calendarIdentifier ?? ""
+                    "calendarIdentifier": event.calendar?.calendarIdentifier ?? "",
+                    // Used to open the event in other apps when the key is pressed.
+                    "calendarItemIdentifier": event.calendarItemIdentifier,
+                    "externalIdentifier": event.calendarItemExternalIdentifier ?? "",
+                    "calendarTitle": event.calendar?.title ?? "",
+                    "accountEmail": Self.accountEmail(for: event.calendar) ?? ""
                 ]
             }
         CalendarManager.writeJSON(events, to: CalendarManager.eventsURL)
+    }
+
+    // The email address of the account a calendar belongs to, when macOS exposes
+    // it. EventKit has no property for this; the source's description includes
+    // "mailto:<address>" for Google and Exchange accounts (the approach MeetingBar
+    // uses), and some accounts are simply titled with the address.
+    private static func accountEmail(for calendar: EKCalendar?) -> String? {
+        guard let source = calendar?.source else { return nil }
+        let description = source.description
+        if let regex = try? NSRegularExpression(pattern: #""mailto:([^"@]+@[^"]+)""#),
+           let match = regex.firstMatch(in: description, range: NSRange(description.startIndex..., in: description)),
+           let range = Range(match.range(at: 1), in: description) {
+            return String(description[range])
+        }
+        return source.title.contains("@") ? source.title : nil
     }
 
     // Meetings that were cancelled, or that you declined, shouldn't raise alerts.

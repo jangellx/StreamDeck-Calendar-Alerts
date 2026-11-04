@@ -41,12 +41,25 @@ The key shows the title of your next event today and how long until it starts:
 Select the key in the Stream Deck app to see its settings. Each key has its own, so you can have one key for work calendars and another for family.
 
 - **Show events from**: check the calendars to include. All of them are included until you uncheck one.
-- **When pressed, open**: Apple Calendar, any other calendar app you have installed (such as Fantastical, BusyCal or Outlook), or a web page or URL (such as `calendar.google.com`).
+- **When pressed, open**: the app or web calendar to open. The menu lists the calendar, meeting and task apps you have installed (such as Fantastical, BusyCal, Outlook, Zoom or Things), web calendars (Google Calendar, Outlook on the web, Outlook.com, iCloud and Proton Calendar), **Another app…** for any other app on your Mac, and **Web page or URL…**.
+
+  Where an app supports it, pressing the key shows the event the key is counting down to:
+
+  | Open in | Pressing the key shows |
+  |---|---|
+  | Calendar | The event |
+  | BusyCal | The event |
+  | Notion Calendar | The event (for Google and other accounts where macOS knows the account's email address) |
+  | Fantastical | The event's day (Fantastical can't be linked to a single event) |
+  | Google Calendar | The event's day, in the Google account the event belongs to |
+  | Anything else | The app or page, as it last was |
+
+  When there are no more events today, the key just opens the app.
 - **When there are no more events**: choose what the key shows.
 
-  <img src="docs/images/no-events-smile.png" width="56" alt="Smiling calendar (light)"> <img src="docs/images/no-events-smile-dark.png" width="56" alt="Smiling calendar (dark)"> <img src="docs/images/no-events-check.png" width="56" alt="Checkmark Calendar"> <img src="docs/images/no-events-text.png" width="56" alt="Text only">
+  <img src="docs/images/no-events-smile.png" width="56" alt="Smiling calendar (light)"> <img src="docs/images/no-events-smile-dark.png" width="56" alt="Smiling calendar (dark)"> <img src="docs/images/no-events-check.png" width="56" alt="Checkmark Calendar"> <img src="docs/images/no-events-moon.png" width="56" alt="Crescent moon"> <img src="docs/images/no-events-text.png" width="56" alt="Text only">
 
-  The choices are a smiling calendar (light or dark), a checkmark calendar, a checkmark ✅ or thumbs-up 👍 emoji, the words "No more events today", or a message of your own. Choose **Your own message…** and type what the key should say; it's sized to fit the key, and line breaks you type are kept. You can also use your own image: choose **Your own image…**, then drag an image file onto the settings panel or click **choose a file**. It's scaled to fit the key.
+  The choices are a smiling calendar (light or dark), a checkmark calendar, a checkmark ✅ or thumbs-up 👍 emoji, a crescent moon, the words "No more events today", or a message of your own. Choose **Your own message…** and type what the key should say; it's sized to fit the key, and line breaks you type are kept. You can also use your own image: choose **Your own image…**, then drag an image file onto the settings panel or click **choose a file**. It's scaled to fit the key.
 
 ## Install
 
@@ -131,4 +144,5 @@ To uninstall, quit Stream Deck and delete `~/Library/Application Support/com.elg
 
 - The idea, and the colors for each stage of the countdown, come from TJ Luoma's [icalbuddy-km-and-stream-deck](https://github.com/tjluoma/icalbuddy-km-and-stream-deck). It uses icalBuddy and Keyboard Maestro to show the time until your next meeting on a Stream Deck key.
 - I had trouble with the shell scripts, so I switched to Shortcuts before writing this plugin. That idea came from ringmaster's [iCal Daily Schedule via iOS/OSX Shortcut](https://forum.obsidian.md/t/ical-daily-schedule-via-ios-osx-shortcut/30686) on the Obsidian forum.
-- The plugin icon and the smiling calendar are from my app Perpetual. The other images are drawn in code.
+- The plugin icon and the smiling calendar are from my app Perpetual. The crescent moon is from NASA's Scientific Visualization Studio ([Dial-A-Moon](https://svs.gsfc.nasa.gov/gallery/moonphase/)). The other images are drawn in code.
+- Opening an event in Apple Calendar uses the `ical://ekevent/` link that [MeetingBar](https://github.com/leits/MeetingBar) uses; Apple doesn't document it. The other apps' links come from their own documentation: [Fantastical](https://flexibits.com/fantastical/help/integration), [BusyCal](https://www.busymac.com/docs/busycal/70621-url-handler) and [Notion Calendar](https://cronhq.notion.site/Cron-API-c0ad725e3b654c64a6d3fa7ae71fa8b3).

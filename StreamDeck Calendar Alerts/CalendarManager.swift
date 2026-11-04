@@ -13,6 +13,12 @@ struct SharedEvent {
     let identifier: String
     let calendarIdentifier: String
 
+    // For opening the event in a calendar app (see AppLauncher.eventLink).
+    var calendarItemIdentifier = ""     // EventKit's local ID; Apple Calendar's ical:// links
+    var externalIdentifier = ""         // the iCalendar UID, shared with the server
+    var calendarTitle = ""
+    var accountEmail = ""               // empty when macOS doesn't say
+
     // eventIdentifier is shared by every occurrence of a recurring event, so
     // include the start time to tell two occurrences on the same day apart.
     var occurrenceKey: String { "\(identifier)@\(startDate.timeIntervalSince1970)" }
@@ -66,7 +72,11 @@ enum CalendarManager {
                 startDate: Date(timeIntervalSince1970: startTS),
                 endDate: Date(timeIntervalSince1970: (dict["endDate"] as? TimeInterval) ?? startTS),
                 identifier: dict["identifier"] as? String ?? "",
-                calendarIdentifier: dict["calendarIdentifier"] as? String ?? ""
+                calendarIdentifier: dict["calendarIdentifier"] as? String ?? "",
+                calendarItemIdentifier: dict["calendarItemIdentifier"] as? String ?? "",
+                externalIdentifier: dict["externalIdentifier"] as? String ?? "",
+                calendarTitle: dict["calendarTitle"] as? String ?? "",
+                accountEmail: dict["accountEmail"] as? String ?? ""
             )
         }
     }

@@ -1,56 +1,229 @@
 import AppKit
 
-// Opens whatever the key is set to open when pressed: a calendar app, or a URL
-// (for web calendars such as Google Calendar).
+// Opens whatever the key is set to open when pressed. In apps that support it,
+// that's the event the key is showing, or at least its day:
+//
+//   Apple Calendar   the event   ical://ekevent/<calendarItemIdentifier>
+//                                (undocumented; the form MeetingBar uses)
+//   BusyCal          the event   busycalevent://find/<calendar>/<title>/<date-time>
+//   Notion Calendar  the event   cron://showEvent?accountEmail=…&iCalUID=…&startDate=…&endDate=…
+//   Fantastical      its day     x-fantastical://date/<yyyy-MM-dd>
+//                                (Fantastical has no link to a single event)
+//   Google Calendar  its day     https://calendar.google.com/calendar/r/day/<y>/<m>/<d>
+//
+// Other apps and web calendars are simply opened.
 enum AppLauncher {
     static let appleCalendarID = "com.apple.iCal"
     static let urlChoice = "url"   // the "openApp" setting value that means "open openURL"
 
-    // Calendar apps that may not register for webcal: links, checked by bundle ID.
-    private static let knownCalendarApps = [
+    private static let fantasticalID = "com.flexibits.fantastical2.mac"
+    private static let busyCalIDs: Set<String> = ["com.busymac.busycal3", "com.busymac.busycal-setapp"]
+    private static let notionCalendarID = "com.cron.electron"
+
+    // Popular Mac apps offered at the top of the menu when they're installed.
+    // Any other app that opens webcal: links is added to the calendar group too.
+    private static let calendarApps = [
         appleCalendarID,
-        "com.flexibits.fantastical2.mac",  // Fantastical
+        fantasticalID,
         "com.busymac.busycal3",            // BusyCal
+        "com.busymac.busycal-setapp",      // BusyCal from Setapp
         "com.microsoft.Outlook",           // Outlook
-        "com.cron.electron",               // Notion Calendar
+        notionCalendarID,                  // Notion Calendar
+        "com.mowglii.ItsycalApp",          // Itsycal
+        "com.sindresorhus.Dato",           // Dato
+    ]
+    private static let meetingAndTaskApps = [
+        "us.zoom.xos",                     // Zoom
+        "com.microsoft.teams2",            // Microsoft Teams
+        "com.microsoft.teams",             // Microsoft Teams (classic)
+        "Cisco-Systems.Spark",             // Webex
+        "com.tinyspeck.slackmacgap",       // Slack
+        "com.apple.reminders",             // Reminders
+        "com.culturedcode.ThingsMac",      // Things
+        "com.todoist.mac.Todoist",         // Todoist
+        "com.omnigroup.OmniFocus4",        // OmniFocus
+        "com.omnigroup.OmniFocus3",        // OmniFocus 3
+        "com.TickTick.task.mac",           // TickTick
     ]
 
-    // Installed calendar apps for the settings panel, Apple Calendar first.
-    static func installedCalendarApps() -> [[String: String]] {
-        var urls: [URL] = []
-        if let webcal = URL(string: "webcal://example.com/calendar.ics") {
-            urls += NSWorkspace.shared.urlsForApplications(toOpen: webcal)
-        }
-        urls += knownCalendarApps.compactMap { NSWorkspace.shared.urlForApplication(withBundleIdentifier: $0) }
+    // Web calendars, always offered. The setting value is the "web:" id.
+    private static let webCalendars: [(id: String, name: String, url: String)] = [
+        ("web:google", "Google Calendar", "https://calendar.google.com/calendar/r"),
+        ("web:outlook", "Outlook on the web", "https://outlook.office.com/calendar/"),
+        ("web:outlook-live", "Outlook.com", "https://outlook.live.com/calendar/"),
+        ("web:icloud", "iCloud Calendar", "https://www.icloud.com/calendar/"),
+        ("web:proton", "Proton Calendar", "https://calendar.proton.me/"),
+    ]
 
-        var seen = Set<String>()
-        var apps: [(id: String, name: String)] = []
-        for url in urls {
-            guard let id = Bundle(url: url)?.bundleIdentifier, seen.insert(id).inserted else { continue }
-            var name = FileManager.default.displayName(atPath: url.path)
-            if name.hasSuffix(".app") { name = String(name.dropLast(4)) }
-            apps.append((id, name))
-        }
-        apps.sort { a, b in
-            if a.id == appleCalendarID { return true }
-            if b.id == appleCalendarID { return false }
-            return a.name.localizedCaseInsensitiveCompare(b.name) == .orderedAscending
-        }
-        return apps.map { ["id": $0.id, "name": $0.name] }
+    // What pressing the key shows for a choice: "event", "day", or nil (just opens it).
+    static func opens(_ choice: String) -> String? {
+        if choice == appleCalendarID || choice == notionCalendarID || busyCalIDs.contains(choice) { return "event" }
+        if choice == fantasticalID || choice == "web:google" { return "day" }
+        return nil
     }
 
-    // Opens the chosen app or URL, falling back to Apple Calendar if it can't.
-    static func open(app bundleID: String, url urlString: String) {
-        if bundleID == urlChoice, let url = webURL(from: urlString) {
+    // MARK: - Menu contents
+
+    // Installed apps for the top of the menu, tagged with a group ("calendar" or
+    // "other") and what a press opens. Apple Calendar comes first.
+    static func suggestedApps() -> [[String: String]] {
+        var seen = Set<String>()
+        var result: [[String: String]] = []
+
+        var calendarURLs = calendarApps.compactMap { NSWorkspace.shared.urlForApplication(withBundleIdentifier: $0) }
+        if let webcal = URL(string: "webcal://example.com/calendar.ics") {
+            calendarURLs += NSWorkspace.shared.urlsForApplications(toOpen: webcal)
+        }
+        let otherURLs = meetingAndTaskApps.compactMap { NSWorkspace.shared.urlForApplication(withBundleIdentifier: $0) }
+
+        for (urls, group) in [(calendarURLs, "calendar"), (otherURLs, "other")] {
+            let apps = urls.compactMap(appInfo).filter { seen.insert($0.id).inserted }
+            for app in sortedByName(apps) {
+                result.append(menuEntry(id: app.id, name: app.name, group: group))
+            }
+        }
+        return result
+    }
+
+    static func webCalendarChoices() -> [[String: String]] {
+        webCalendars.map { menuEntry(id: $0.id, name: $0.name, group: "web") }
+    }
+
+    // Every app in the usual Applications folders, for "Another app…".
+    static func allApps() -> [[String: String]] {
+        let folders = [
+            "/Applications", "/Applications/Utilities", "/Applications/Setapp",
+            "/System/Applications", "/System/Applications/Utilities",
+            NSHomeDirectory() + "/Applications",
+        ]
+        var seen = Set<String>()
+        var apps: [(id: String, name: String)] = []
+        for folder in folders {
+            let items = (try? FileManager.default.contentsOfDirectory(atPath: folder)) ?? []
+            for item in items where item.hasSuffix(".app") {
+                guard let app = appInfo(URL(fileURLWithPath: folder).appendingPathComponent(item)),
+                      seen.insert(app.id).inserted else { continue }
+                apps.append(app)
+            }
+        }
+        return sortedByName(apps).map { menuEntry(id: $0.id, name: $0.name, group: "all") }
+    }
+
+    private static func menuEntry(id: String, name: String, group: String) -> [String: String] {
+        var entry = ["id": id, "name": name, "group": group]
+        if let opens = opens(id) { entry["opens"] = opens }
+        return entry
+    }
+
+    // MARK: - Opening
+
+    // Opens the chosen app, web calendar or URL, showing `event` where the app
+    // supports it. Falls back to Apple Calendar if the chosen app is missing.
+    static func open(choice: String, url urlString: String, event: SharedEvent?) {
+        if let web = webCalendars.first(where: { $0.id == choice }) {
+            if let link = event.flatMap({ webEventLink(choice, event: $0) }) ?? URL(string: web.url) {
+                NSWorkspace.shared.open(link)
+            }
+            return
+        }
+        if choice == urlChoice, let url = webURL(from: urlString) {
             NSWorkspace.shared.open(url)
             return
         }
-        let appURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID)
-            ?? NSWorkspace.shared.urlForApplication(withBundleIdentifier: appleCalendarID)
-        guard let appURL else { return }
-        NSWorkspace.shared.openApplication(at: appURL, configuration: NSWorkspace.OpenConfiguration()) { _, error in
-            if let error { NSLog("[CalendarAlerts] Couldn't open \(appURL.path): \(error)") }
+
+        var bundleID = choice
+        var appURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: choice)
+        if appURL == nil {
+            bundleID = appleCalendarID
+            appURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: appleCalendarID)
         }
+        guard let appURL else { return }
+
+        let config = NSWorkspace.OpenConfiguration()
+        let report: (NSRunningApplication?, Error?) -> Void = { _, error in
+            if let error { NSLog("[CalendarAlerts] Couldn't open \(appURL.lastPathComponent): \(error)") }
+        }
+        if let event, let link = eventLink(for: bundleID, event: event) {
+            // Hand the link to the chosen app specifically, not whatever owns the scheme.
+            NSWorkspace.shared.open([link], withApplicationAt: appURL, configuration: config, completionHandler: report)
+        } else {
+            NSWorkspace.shared.openApplication(at: appURL, configuration: config, completionHandler: report)
+        }
+    }
+
+    static func eventLink(for bundleID: String, event: SharedEvent) -> URL? {
+        switch bundleID {
+        case appleCalendarID:
+            guard !event.calendarItemIdentifier.isEmpty else { return nil }
+            return URL(string: "ical://ekevent/\(encode(event.calendarItemIdentifier))")
+        case fantasticalID:
+            return URL(string: "x-fantastical://date/\(localDay(event.startDate))")
+        case _ where busyCalIDs.contains(bundleID):
+            let time = format(event.startDate, "yyyy-MM-dd'T'HH:mm:ssZ", utc: true)
+            return URL(string: "busycalevent://find/\(encode(event.calendarTitle))/\(encode(event.title))/\(encode(time))")
+        case notionCalendarID:
+            // Notion Calendar needs the account the event belongs to.
+            guard !event.accountEmail.isEmpty, !event.externalIdentifier.isEmpty else { return nil }
+            let iso = ISO8601DateFormatter()
+            iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+            let query = [
+                ("accountEmail", event.accountEmail),
+                ("iCalUID", event.externalIdentifier),
+                ("startDate", iso.string(from: event.startDate)),
+                ("endDate", iso.string(from: event.endDate)),
+                ("title", event.title),
+                ("ref", "com.joeangell.calendar-alerts"),
+            ].map { "\($0)=\(encode($1))" }.joined(separator: "&")
+            return URL(string: "cron://showEvent?\(query)")
+        default:
+            return nil
+        }
+    }
+
+    static func webEventLink(_ choice: String, event: SharedEvent) -> URL? {
+        guard choice == "web:google" else { return nil }
+        let day = Calendar.current.dateComponents([.year, .month, .day], from: event.startDate)
+        guard let y = day.year, let m = day.month, let d = day.day else { return nil }
+        var link = "https://calendar.google.com/calendar/r/day/\(y)/\(m)/\(d)"
+        // Open the Google account the event belongs to, if there are several.
+        if !event.accountEmail.isEmpty { link += "?authuser=" + encode(event.accountEmail) }
+        return URL(string: link)
+    }
+
+    // MARK: - Helpers
+
+    private static func appInfo(_ url: URL) -> (id: String, name: String)? {
+        guard let id = Bundle(url: url)?.bundleIdentifier else { return nil }
+        var name = FileManager.default.displayName(atPath: url.path)
+        if name.hasSuffix(".app") { name = String(name.dropLast(4)) }
+        return (id, name)
+    }
+
+    // Alphabetical, with Apple Calendar always first.
+    private static func sortedByName(_ apps: [(id: String, name: String)]) -> [(id: String, name: String)] {
+        apps.sorted { a, b in
+            if a.id == appleCalendarID { return b.id != appleCalendarID }
+            if b.id == appleCalendarID { return false }
+            return a.name.localizedCaseInsensitiveCompare(b.name) == .orderedAscending
+        }
+    }
+
+    // Percent-encodes everything except RFC 3986 unreserved characters, so a
+    // title containing "/" or "&" can't break a path or query.
+    private static let unreserved = CharacterSet(
+        charactersIn: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~")
+    private static func encode(_ text: String) -> String {
+        text.addingPercentEncoding(withAllowedCharacters: unreserved) ?? text
+    }
+
+    private static func localDay(_ date: Date) -> String { format(date, "yyyy-MM-dd", utc: false) }
+
+    private static func format(_ date: Date, _ pattern: String, utc: Bool) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = utc ? TimeZone(identifier: "UTC") : .current
+        formatter.dateFormat = pattern
+        return formatter.string(from: date)
     }
 
     // Accepts "calendar.google.com" as well as full URLs and custom schemes
