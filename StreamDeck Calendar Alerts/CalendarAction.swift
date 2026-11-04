@@ -16,7 +16,7 @@ final class CalendarAction {
     private var selectedCalendarIDs: Set<String> = []          // empty = all calendars
     private var openApp = AppLauncher.appleCalendarID          // bundle ID, or AppLauncher.urlChoice
     private var openURL = ""
-    private var noEventsStyle = "smile"                         // smile | smile-dark | check | check-emoji | thumbs | moon | text | message | custom
+    private var noEventsStyle = "moon"                          // moon | smile | smile-dark | check | check-emoji | thumbs | crescent | text | message | custom
     private var noEventsMessage = ""                            // the user's words for "message"
     private var noEventsImage = ""                              // data: URL for "custom"
 
@@ -31,7 +31,7 @@ final class CalendarAction {
         selectedCalendarIDs = Set(settings["selectedCalendars"] as? [String] ?? [])
         openApp       = settings["openApp"] as? String ?? AppLauncher.appleCalendarID
         openURL       = settings["openURL"] as? String ?? ""
-        noEventsStyle = settings["noEventsStyle"] as? String ?? "smile"
+        noEventsStyle = settings["noEventsStyle"] as? String ?? "moon"
         noEventsMessage = settings["noEventsMessage"] as? String ?? ""
         noEventsImage = settings["noEventsImage"] as? String ?? ""
         if minuteTimer != nil { update() }

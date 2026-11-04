@@ -74,11 +74,12 @@ final class ButtonImageRenderer {
     }
 
     // What the key shows when there are no more events today. Styles:
-    //   "smile"      – the bundled smiling calendar, light version (default)
+    //   "smile"      – the bundled smiling calendar, light version
     //   "smile-dark" – the same, dark version
     //   "check"      – a drawn red calendar with a white checkmark and "All clear"
     //   "check-emoji" – a checkmark emoji
-    //   "moon"       – a crescent moon (NASA photo, bundled)
+    //   "moon"       – today's moon phase (NASA images, bundled; see MoonPhase) (default)
+    //   "crescent"   – a crescent moon emoji
     //   "thumbs"     – a thumbs-up emoji
     //   "text"       – the words "No more events today"
     //   "message"    – the user's own words, passed in as customMessage
@@ -102,10 +103,12 @@ final class ButtonImageRenderer {
             return renderMessage(Self.defaultNoEventsText)
         case "smile-dark":
             return bundledImage("no-events-dark") ?? renderAllClear()
-        case "moon":
-            return bundledImage("no-events-moon") ?? renderEmoji("🌙")
-        default:
+        case "crescent":
+            return renderEmoji("🌙")
+        case "smile":
             return bundledImage("no-events-light") ?? renderAllClear()
+        default:  // "moon", and any unknown style
+            return bundledImage(MoonPhase.imageName(onDayOf: Date())) ?? renderEmoji("🌙")
         }
     }
 

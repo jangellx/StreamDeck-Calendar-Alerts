@@ -114,12 +114,13 @@
 
     <div class="section-label">When there are no more events</div>
     <select id="noEventsStyle">
+        <option value="moon">Moon phase</option>
         <option value="smile">Smiling calendar (light)</option>
         <option value="smile-dark">Smiling calendar (dark)</option>
         <option value="check">Checkmark Calendar</option>
         <option value="check-emoji">Checkmark ✅</option>
         <option value="thumbs">Thumbs up 👍</option>
-        <option value="moon">Crescent moon</option>
+        <option value="crescent">Crescent moon 🌙</option>
         <option value="text">Text only</option>
         <option value="message">Your own message…</option>
         <option value="custom">Your own image…</option>
@@ -150,7 +151,7 @@
             selectedCalendars: [],      // empty means "all calendars"
             openApp: 'com.apple.iCal',  // a bundle ID, a 'web:' id, or 'url'
             openURL: '',
-            noEventsStyle: 'smile',     // smile | smile-dark | check | check-emoji | thumbs | moon | text | message | custom
+            noEventsStyle: 'moon',      // moon | smile | smile-dark | check | check-emoji | thumbs | crescent | text | message | custom
             noEventsMessage: '',        // the key's text when noEventsStyle is 'message'
             noEventsImage: ''           // data: URL when noEventsStyle is 'custom'
         };
@@ -160,7 +161,7 @@
             settings.selectedCalendars = s.selectedCalendars || [];
             settings.openApp = s.openApp || 'com.apple.iCal';
             settings.openURL = s.openURL || '';
-            settings.noEventsStyle = s.noEventsStyle || 'smile';
+            settings.noEventsStyle = s.noEventsStyle || 'moon';
             settings.noEventsMessage = s.noEventsMessage || '';
             settings.noEventsImage = s.noEventsImage || '';
         }

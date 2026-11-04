@@ -6,8 +6,8 @@
 #                                       icons in Joe Angell's Perpetual project
 #                                       (skipped if that project isn't next to this one;
 #                                       set PERPETUAL_ICONS to its Icons folder)
-#   Images/no-events-moon               a crescent from the moon-phase photos Perpetual
-#                                       uses: NASA's Scientific Visualization Studio
+#   Images/moon-00…29                   the moon-phase images Perpetual uses, from
+#                                       NASA's Scientific Visualization Studio
 #                                       (Dial-A-Moon), which NASA asks to be credited
 #   Images/action, category             drawn by Tools/ImageTool
 #   docs/images/*.png                   sample keys for the README
@@ -43,20 +43,23 @@ else
     echo "==> Skipping Perpetual icons (not found at ${PERPETUAL_ICONS}, or Icon Composer missing)"
 fi
 
-# Waning crescent (frame 25 of 30, new moon = 00): the brightest, thickest
-# crescent, so it reads best on a small key. The photo is on black and fills the key.
-MOON="${PERPETUAL_ICONS}/../Assets.xcassets/Moon/moon-25.imageset/moon-25.jpg"
-if [ -f "${MOON}" ]; then
-    echo "==> Exporting the crescent moon"
-    sips -s format png -z 72 72 "${MOON}" --out "${ROOT}/Images/no-events-moon.png" >/dev/null
-    sips -s format png -z 144 144 "${MOON}" --out "${ROOT}/Images/no-events-moon@2x.png" >/dev/null
+# All thirty moon phases (moon-00 = new, moon-15 = full), at key size. The
+# plugin shows today's (see MoonPhase.swift). Each photo is on black and fills the key.
+MOONS="${PERPETUAL_ICONS}/../Assets.xcassets/Moon"
+if [ -d "${MOONS}" ]; then
+    echo "==> Exporting the moon phases"
+    for i in $(seq -w 0 29); do
+        sips -s format png -z 144 144 "${MOONS}/moon-${i}.imageset/moon-${i}.jpg" \
+            --out "${ROOT}/Images/moon-${i}@2x.png" >/dev/null
+    done
 else
-    echo "==> Skipping the crescent moon (not found at ${MOON})"
+    echo "==> Skipping the moon phases (not found at ${MOONS})"
 fi
 
 echo "==> Drawing action and category icons, and README samples"
 TMP="$(mktemp -d)"
 trap 'rm -rf "${TMP}"' EXIT
 xcrun swiftc -O -o "${TMP}/ImageTool" \
-    "${ROOT}/StreamDeck Calendar Alerts/ButtonImageRenderer.swift" "${ROOT}/Tools/ImageTool/main.swift"
+    "${ROOT}/StreamDeck Calendar Alerts/ButtonImageRenderer.swift" \
+    "${ROOT}/StreamDeck Calendar Alerts/MoonPhase.swift" "${ROOT}/Tools/ImageTool/main.swift"
 "${TMP}/ImageTool" "${ROOT}"
