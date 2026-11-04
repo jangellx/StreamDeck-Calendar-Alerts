@@ -1,6 +1,4 @@
 import Foundation
-import AppKit
-import EventKit
 
 struct CalendarInfo {
     let id: String
@@ -14,75 +12,52 @@ struct SharedEvent {
     let endDate: Date
     let identifier: String
     let calendarIdentifier: String
+
+    // eventIdentifier is shared by every occurrence of a recurring event, so
+    // include the start time to tell two occurrences on the same day apart.
+    var occurrenceKey: String { "\(identifier)@\(startDate.timeIntervalSince1970)" }
 }
 
-// CalendarManager is used by CalendarServiceRunner (running in CalendarHelper.app)
-// to access EventKit. The plugin binary itself reads from shared temp files instead.
-final class CalendarManager {
-    static let shared = CalendarManager()
-    private let store = EKEventStore()
-    private(set) var isAuthorized = false
+// CalendarHelper.app (CalendarServiceRunner) reads EventKit and writes these files;
+// the plugin binary only reads them. They live in the user's own Caches folder
+// rather than /tmp so other accounts on the Mac can't read event titles.
+enum CalendarManager {
+    static let directory: URL = {
+        let caches = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
+        return caches.appendingPathComponent("com.joeangell.calendar-alerts", isDirectory: true)
+    }()
 
-    private init() {}
+    static let eventsURL    = directory.appendingPathComponent("events.json")
+    static let calendarsURL = directory.appendingPathComponent("calendars.json")
+    static let statusURL    = directory.appendingPathComponent("status.json")
 
-    func requestAccess(completion: @escaping (Bool) -> Void) {
-        let status = EKEventStore.authorizationStatus(for: .event)
-        NSLog("[CalendarAlerts] EKAuthorizationStatus raw value: \(status.rawValue)")
-        switch status {
-        case .fullAccess, .authorized:
-            isAuthorized = true
-            completion(true)
-        case .notDetermined:
-            store.requestFullAccessToEvents { [weak self] granted, error in
-                NSLog("[CalendarAlerts] requestFullAccessToEvents: granted=\(granted) error=\(String(describing: error))")
-                DispatchQueue.main.async {
-                    self?.isAuthorized = granted
-                    completion(granted)
-                }
-            }
-        default:
-            isAuthorized = false
-            completion(false)
+    // Writes atomically so the plugin never reads a half-written file.
+    static func writeJSON(_ object: Any, to url: URL) {
+        do {
+            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true,
+                                                    attributes: [.posixPermissions: 0o700])
+            let data = try JSONSerialization.data(withJSONObject: object)
+            try data.write(to: url, options: .atomic)
+        } catch {
+            NSLog("[CalendarAlerts] Failed to write \(url.lastPathComponent): \(error)")
         }
     }
 
-    func availableCalendars() -> [CalendarInfo] {
-        guard isAuthorized else { return [] }
-        return store.calendars(for: .event).map { cal in
-            var hex = "#888888"
-            if let rgb = cal.color.usingColorSpace(.sRGB) {
-                let r = Int((rgb.redComponent * 255).rounded())
-                let g = Int((rgb.greenComponent * 255).rounded())
-                let b = Int((rgb.blueComponent * 255).rounded())
-                hex = String(format: "#%02X%02X%02X", r, g, b)
-            }
-            return CalendarInfo(id: cal.calendarIdentifier, title: cal.title, hexColor: hex)
-        }
+    private static func readJSON(_ url: URL) -> Any? {
+        guard let data = try? Data(contentsOf: url) else { return nil }
+        return try? JSONSerialization.jsonObject(with: data)
     }
 
-    func nextEventToday(filteredTo calendarIDs: Set<String> = []) -> EKEvent? {
-        guard isAuthorized else { return nil }
-        let now = Date()
-        let cal = Calendar.current
-        guard let endOfDay = cal.date(bySettingHour: 23, minute: 59, second: 59, of: now) else { return nil }
-
-        let calendars: [EKCalendar]? = calendarIDs.isEmpty ? nil :
-            store.calendars(for: .event).filter { calendarIDs.contains($0.calendarIdentifier) }
-
-        let predicate = store.predicateForEvents(withStart: now, end: endOfDay, calendars: calendars)
-        return store.events(matching: predicate)
-            .filter { $0.startDate > now && !$0.isAllDay }
-            .sorted { $0.startDate < $1.startDate }
-            .first
+    // True only when the helper has reported that calendar access was refused.
+    // A missing status file means the helper hasn't started yet, not a denial.
+    static func accessDenied() -> Bool {
+        guard let status = readJSON(statusURL) as? [String: Any],
+              let authorized = status["authorized"] as? Bool else { return false }
+        return !authorized
     }
-
-    // MARK: - Shared file reading (used by the plugin binary process)
 
     static func readEventsFromSharedFile() -> [SharedEvent] {
-        guard let data = try? Data(contentsOf: URL(fileURLWithPath: "/tmp/calendar-alerts-events.json")),
-              let array = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] else {
-            return []
-        }
+        guard let array = readJSON(eventsURL) as? [[String: Any]] else { return [] }
         return array.compactMap { dict in
             guard let title = dict["title"] as? String,
                   let startTS = dict["startDate"] as? TimeInterval else { return nil }
@@ -97,19 +72,14 @@ final class CalendarManager {
     }
 
     static func nextEventFromSharedFile(filteredTo calendarIDs: Set<String> = []) -> SharedEvent? {
-        let events = readEventsFromSharedFile()
         let now = Date()
-        return events
+        return readEventsFromSharedFile()
             .filter { $0.startDate > now && (calendarIDs.isEmpty || calendarIDs.contains($0.calendarIdentifier)) }
-            .sorted { $0.startDate < $1.startDate }
-            .first
+            .min { $0.startDate < $1.startDate }
     }
 
     static func readCalendarsFromSharedFile() -> [CalendarInfo] {
-        guard let data = try? Data(contentsOf: URL(fileURLWithPath: "/tmp/calendar-alerts-calendars.json")),
-              let array = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] else {
-            return []
-        }
+        guard let array = readJSON(calendarsURL) as? [[String: Any]] else { return [] }
         return array.compactMap { dict in
             guard let id = dict["id"] as? String,
                   let title = dict["title"] as? String else { return nil }

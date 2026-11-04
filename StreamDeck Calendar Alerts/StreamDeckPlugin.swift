@@ -33,8 +33,16 @@ final class StreamDeckPlugin: NSObject {
     private func listen() {
         webSocketTask?.receive { [weak self] result in
             guard let self else { return }
-            if case .success(let message) = result, case .string(let text) = message {
+            switch result {
+            case .success(.string(let text)):
                 self.handle(text)
+            case .success:
+                break // Stream Deck only sends text frames.
+            case .failure(let error):
+                // The connection to Stream Deck is gone, so there's nothing left to
+                // do. Calling receive() again would fail at once and spin forever.
+                NSLog("[CalendarAlerts] WebSocket receive failed: \(error) — exiting")
+                exit(0)
             }
             self.listen()
         }
@@ -51,6 +59,7 @@ final class StreamDeckPlugin: NSObject {
         case "willAppear":
             let payload = json["payload"] as? [String: Any] ?? [:]
             let settings = payload["settings"] as? [String: Any] ?? [:]
+            actions[context]?.stop()  // don't leak timers if willAppear repeats
             let action = CalendarAction(context: context, plugin: self)
             actions[context] = action
             action.applySettings(settings)
@@ -66,18 +75,23 @@ final class StreamDeckPlugin: NSObject {
             actions[context]?.applySettings(settings)
         case "sendToPlugin":
             let payload = json["payload"] as? [String: Any] ?? [:]
-            if let request = payload["request"] as? String, request == "getCalendars" {
-                // Respond directly so the PI gets calendar data even if the action
-                // hasn't been fully initialised yet (willAppear race).
-                let calendars = CalendarManager.readCalendarsFromSharedFile()
-                let data = calendars.map { ["id": $0.id, "title": $0.title, "color": $0.hexColor] as [String: Any] }
-                sendToPropertyInspector(context: context, payload: ["calendars": data])
-            } else {
-                actions[context]?.handleFromPI(payload)
+            if payload["request"] as? String == "getCalendars" {
+                // Answered here rather than by the action, so the PI gets data even
+                // if willAppear hasn't arrived for this context yet.
+                sendCalendarList(context: context)
             }
         default:
             break
         }
+    }
+
+    private func sendCalendarList(context: String) {
+        let calendars = CalendarManager.readCalendarsFromSharedFile()
+            .map { ["id": $0.id, "title": $0.title, "color": $0.hexColor] }
+        sendToPropertyInspector(context: context, payload: [
+            "calendars": calendars,
+            "needsPermission": CalendarManager.accessDenied()
+        ])
     }
 
     func sendToPropertyInspector(context: String, payload: [String: Any]) {
@@ -94,5 +108,11 @@ extension StreamDeckPlugin: URLSessionWebSocketDelegate {
     func urlSession(_ session: URLSession, webSocketTask: URLSessionWebSocketTask,
                     didOpenWithProtocol protocol: String?) {
         send(["event": registerEvent, "uuid": uuid])
+    }
+
+    func urlSession(_ session: URLSession, webSocketTask: URLSessionWebSocketTask,
+                    didCloseWith closeCode: URLSessionWebSocketTask.CloseCode, reason: Data?) {
+        NSLog("[CalendarAlerts] Stream Deck closed the connection (code \(closeCode.rawValue)) — exiting")
+        exit(0)
     }
 }

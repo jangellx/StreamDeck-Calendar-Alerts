@@ -1,28 +1,58 @@
 #!/bin/bash
-set -e
+set -euo pipefail
 
 PLUGIN_ID="com.joeangell.calendar-alerts"
 PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_FILE="${PROJECT_DIR}/StreamDeck Calendar Alerts.xcodeproj"
 BUILD_DIR="${PROJECT_DIR}/.build"
+BUILD_LOG="${BUILD_DIR}/build.log"
 PLUGIN_DIR="${HOME}/Library/Application Support/com.elgato.StreamDeck/Plugins/${PLUGIN_ID}.sdPlugin"
 ENTITLEMENTS="${PROJECT_DIR}/StreamDeck Calendar Alerts/StreamDeck Calendar Alerts.entitlements"
 HELPER_ENTITLEMENTS="${PROJECT_DIR}/StreamDeck Calendar Alerts/CalendarHelper.entitlements"
 SIGN_ID="Apple Development: Joe Angell (AZDX94UY8R)"
+EXEC="${BUILD_DIR}/Build/Products/Release/StreamDeck Calendar Alerts"
+
+# xcodebuild needs full Xcode. If xcode-select points at the Command Line Tools,
+# use /Applications/Xcode.app for this run instead.
+if [ -z "${DEVELOPER_DIR:-}" ] && [[ "$(xcode-select -p 2>/dev/null)" == *CommandLineTools* ]] \
+        && [ -d "/Applications/Xcode.app/Contents/Developer" ]; then
+    export DEVELOPER_DIR="/Applications/Xcode.app/Contents/Developer"
+    echo "==> Using ${DEVELOPER_DIR} (xcode-select points at the Command Line Tools)"
+fi
 
 echo "==> Building Release..."
-xcodebuild \
-    -project "${PROJECT_FILE}" \
-    -scheme "StreamDeck Calendar Alerts" \
-    -configuration Release \
-    -derivedDataPath "${BUILD_DIR}" \
-    build 2>&1 | grep -E "(error:|warning:|BUILD SUCCEEDED|BUILD FAILED)" || true
+mkdir -p "${BUILD_DIR}"
+rm -f "${EXEC}"   # so a failed build can't leave an old binary to install
+if ! xcodebuild \
+        -project "${PROJECT_FILE}" \
+        -scheme "StreamDeck Calendar Alerts" \
+        -configuration Release \
+        -derivedDataPath "${BUILD_DIR}" \
+        build > "${BUILD_LOG}" 2>&1; then
+    grep -E "error:" "${BUILD_LOG}" || tail -20 "${BUILD_LOG}"
+    echo "BUILD FAILED (full log: ${BUILD_LOG})"
+    exit 1
+fi
+grep -E "warning:" "${BUILD_LOG}" | sort -u || true
+echo "** BUILD SUCCEEDED **"
 
-EXEC="${BUILD_DIR}/Build/Products/Release/StreamDeck Calendar Alerts"
 if [ ! -f "${EXEC}" ]; then
     echo "ERROR: Build output not found at ${EXEC}"
     exit 1
 fi
+
+# Stop Stream Deck (which stops the plugin) and any running CalendarHelper before
+# replacing their files. Overwriting a running signed binary can get it killed,
+# and a helper left running would keep using the old code.
+echo "==> Stopping Stream Deck and CalendarHelper..."
+if pgrep -x "Stream Deck" >/dev/null; then
+    killall "Stream Deck" 2>/dev/null || true
+    for _ in {1..20}; do
+        pgrep -x "Stream Deck" >/dev/null || break
+        sleep 0.5
+    done
+fi
+pkill -f "${PLUGIN_ID}.sdPlugin/CalendarHelper.app/Contents/MacOS/CalendarHelper" 2>/dev/null || true
 
 echo "==> Creating plugin bundle..."
 mkdir -p "${PLUGIN_DIR}/Images"
@@ -76,12 +106,14 @@ PYEOF
 # The plugin binary launches this via NSWorkspace so it runs as its own
 # LaunchServices process with its own TCC context. It reads calendar events
 # (using the com.joeangell.calendar-alerts TCC permission already granted)
-# and writes them to /tmp for the plugin to read.
+# and writes them to ~/Library/Caches/com.joeangell.calendar-alerts for the plugin to read.
 echo "==> Creating CalendarHelper.app..."
 HELPER_APP="${PLUGIN_DIR}/CalendarHelper.app"
 rm -rf "${HELPER_APP}"
 mkdir -p "${HELPER_APP}/Contents/MacOS"
 
+# LSUIElement keeps the helper out of the Dock (it only shows itself while
+# asking for calendar permission).
 cat > "${HELPER_APP}/Contents/Info.plist" <<HPLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -95,6 +127,8 @@ cat > "${HELPER_APP}/Contents/Info.plist" <<HPLIST
     <string>CalendarHelper</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
+    <key>LSUIElement</key>
+    <true/>
     <key>NSPrincipalClass</key>
     <string>NSApplication</string>
     <key>NSCalendarsFullAccessUsageDescription</key>
@@ -116,8 +150,6 @@ echo ""
 echo "✓ Installed: ${PLUGIN_DIR}"
 echo ""
 
-echo "==> Restarting StreamDeck..."
-killall "Stream Deck" 2>/dev/null || true
-sleep 1
+echo "==> Starting Stream Deck..."
 open "/Applications/Elgato Stream Deck.app"
 echo "Done."

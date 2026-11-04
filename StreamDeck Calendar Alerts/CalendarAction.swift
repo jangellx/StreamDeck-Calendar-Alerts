@@ -1,6 +1,5 @@
 import Foundation
 import AudioToolbox
-import EventKit
 
 final class CalendarAction {
     let context: String
@@ -10,7 +9,7 @@ final class CalendarAction {
     private var flashTimer: Timer?
     private var flashPhase = false
     private var currentEvent: SharedEvent?
-    private var currentEventID: String?
+    private var currentEventKey: String?
     private var soundsPlayed: Set<Int> = []
     private var selectedCalendarIDs: Set<String> = []
 
@@ -25,13 +24,6 @@ final class CalendarAction {
         let ids = settings["selectedCalendars"] as? [String] ?? []
         selectedCalendarIDs = Set(ids)
         if minuteTimer != nil { update() }
-    }
-
-    func handleFromPI(_ payload: [String: Any]) {
-        guard let request = payload["request"] as? String, request == "getCalendars" else { return }
-        let calendars = CalendarManager.readCalendarsFromSharedFile()
-        let data = calendars.map { ["id": $0.id, "title": $0.title, "color": $0.hexColor] as [String: Any] }
-        plugin?.sendToPropertyInspector(context: context, payload: ["calendars": data])
     }
 
     func start() {
@@ -59,40 +51,48 @@ final class CalendarAction {
     }
 
     func update() {
-        guard let plugin else { return }
-
-        if let event = CalendarManager.nextEventFromSharedFile(filteredTo: selectedCalendarIDs) {
-            currentEvent = event
-            let minutesUntil = max(0, Int(event.startDate.timeIntervalSinceNow / 60))
-
-            if event.identifier != currentEventID {
-                currentEventID = event.identifier
-                soundsPlayed = []
-            }
-
-            if Self.alertMinutes.contains(minutesUntil), !soundsPlayed.contains(minutesUntil) {
-                soundsPlayed.insert(minutesUntil)
-                AudioServicesPlaySystemSound(kSystemSoundID_UserPreferredAlert)
-            }
-
-            if minutesUntil == 0 {
-                startFlashing()
-            } else {
-                stopFlashing()
-                sendImage(for: event, minutesUntil: minutesUntil, flashPhase: false)
-            }
-        } else {
-            currentEvent = nil
-            currentEventID = nil
-            soundsPlayed = []
-            stopFlashing()
-            let image = ButtonImageRenderer.shared.renderNoMeetings()
-            plugin.send([
-                "event": "setImage",
-                "context": context,
-                "payload": ["image": image, "target": 0]
-            ])
+        if CalendarManager.accessDenied() {
+            resetEventState()
+            sendImage(ButtonImageRenderer.shared.renderNoAccess())
+            return
         }
+
+        guard let event = CalendarManager.nextEventFromSharedFile(filteredTo: selectedCalendarIDs) else {
+            resetEventState()
+            sendImage(ButtonImageRenderer.shared.renderNoMeetings())
+            return
+        }
+
+        currentEvent = event
+        if event.occurrenceKey != currentEventKey {
+            currentEventKey = event.occurrenceKey
+            soundsPlayed = []
+        }
+
+        // Ticks land a few milliseconds after each minute boundary, so round up:
+        // at 10:00 a 10:30 meeting is 30 minutes away, not 29.
+        let secondsUntil = event.startDate.timeIntervalSinceNow
+        let minutesUntil = Int((secondsUntil / 60).rounded(.up))
+
+        if Self.alertMinutes.contains(minutesUntil), !soundsPlayed.contains(minutesUntil) {
+            soundsPlayed.insert(minutesUntil)
+            AudioServicesPlaySystemSound(kSystemSoundID_UserPreferredAlert)
+        }
+
+        // Flash "NOW" through the final minute before the meeting starts.
+        if secondsUntil <= 60 {
+            startFlashing()
+        } else {
+            stopFlashing()
+            sendEventImage(event, minutesUntil: minutesUntil, flashPhase: false)
+        }
+    }
+
+    private func resetEventState() {
+        currentEvent = nil
+        currentEventKey = nil
+        soundsPlayed = []
+        stopFlashing()
     }
 
     private func startFlashing() {
@@ -115,17 +115,19 @@ final class CalendarAction {
 
     private func sendFlashFrame() {
         guard let event = currentEvent else { return }
-        sendImage(for: event, minutesUntil: 0, flashPhase: flashPhase)
+        sendEventImage(event, minutesUntil: 0, flashPhase: flashPhase)
     }
 
-    private func sendImage(for event: SharedEvent, minutesUntil: Int, flashPhase: Bool) {
-        guard let plugin else { return }
-        let image = ButtonImageRenderer.shared.renderEvent(
+    private func sendEventImage(_ event: SharedEvent, minutesUntil: Int, flashPhase: Bool) {
+        sendImage(ButtonImageRenderer.shared.renderEvent(
             title: event.title,
             minutesUntil: minutesUntil,
             flashPhase: flashPhase
-        )
-        plugin.send([
+        ))
+    }
+
+    private func sendImage(_ image: String) {
+        plugin?.send([
             "event": "setImage",
             "context": context,
             "payload": ["image": image, "target": 0]

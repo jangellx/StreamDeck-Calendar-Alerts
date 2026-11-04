@@ -12,8 +12,8 @@ final class ButtonImageRenderer {
     private init() {}
 
     // flashPhase is only meaningful when minutesUntil == 0:
-    //   false → no strip, red "Now!" text
-    //   true  → red strip, black "Now!" text
+    //   false → no strip, red "NOW" text
+    //   true  → red strip, black "NOW" text
     func renderEvent(title: String, minutesUntil: Int, flashPhase: Bool = false) -> String {
         guard let ctx = makeContext() else { return "" }
 
@@ -81,6 +81,21 @@ final class ButtonImageRenderer {
         return toPNGDataURI(ctx)
     }
 
+    // Shown when the helper reports that calendar access was refused.
+    func renderNoAccess() -> String {
+        guard let ctx = makeContext() else { return "" }
+        ctx.setFillColor(CGColor(red: 0.10, green: 0.10, blue: 0.12, alpha: 1))
+        ctx.fill(CGRect(x: 0, y: 0, width: size, height: size))
+        withNSGraphicsContext(ctx) {
+            draw("⚠️", font: .systemFont(ofSize: 17), color: .white, alignment: .center,
+                 in: CGRect(x: 0, y: 47, width: 72, height: 22))
+            // Wraps to three lines: "No / calendar / access".
+            draw("No calendar access", font: .boldSystemFont(ofSize: 11), color: .white, alignment: .center,
+                 in: CGRect(x: 4, y: 2, width: 64, height: 44))
+        }
+        return toPNGDataURI(ctx)
+    }
+
     // MARK: - Private
 
     private func makeContext() -> CGContext? {
@@ -134,13 +149,16 @@ final class ButtonImageRenderer {
         return "\(minutes)m"
     }
 
-    // Strip leading numeric room/floor codes, e.g. "101 " from "101 Team Standup".
+    // Strip a leading room/floor code, e.g. "101 " from "101 Team Standup" or
+    // "4.2 - " from "4.2 - Review". The code must be followed by a space, so
+    // titles like "1:1 with Sam" or "3D printing" are left alone.
+    private static let roomCodePrefix = try? NSRegularExpression(pattern: #"^\d[\d.\-]*\s+(?:[-–—]\s+)?"#)
+
     private func cleanTitle(_ title: String) -> String {
-        guard let regex = try? NSRegularExpression(pattern: #"^[\d\s\-\.]+"#),
+        guard let regex = Self.roomCodePrefix,
               let match = regex.firstMatch(in: title, range: NSRange(title.startIndex..., in: title)),
-              match.range.length > 0 && match.range.length < title.count else { return title }
-        let idx = title.index(title.startIndex, offsetBy: match.range.length)
-        let cleaned = String(title[idx...]).trimmingCharacters(in: .whitespaces)
+              let range = Range(match.range, in: title) else { return title }
+        let cleaned = String(title[range.upperBound...]).trimmingCharacters(in: .whitespaces)
         return cleaned.isEmpty ? title : cleaned
     }
 
