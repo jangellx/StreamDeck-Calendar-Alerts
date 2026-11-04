@@ -68,28 +68,31 @@ final class StreamDeckPlugin: NSObject {
             actions[context]?.stop()
             actions.removeValue(forKey: context)
         case "keyDown":
-            actions[context]?.openCalendar()
+            actions[context]?.openConfiguredApp()
         case "didReceiveSettings":
             let payload = json["payload"] as? [String: Any] ?? [:]
             let settings = payload["settings"] as? [String: Any] ?? [:]
             actions[context]?.applySettings(settings)
         case "sendToPlugin":
             let payload = json["payload"] as? [String: Any] ?? [:]
-            if payload["request"] as? String == "getCalendars" {
+            if payload["request"] as? String == "getPanelData" {
                 // Answered here rather than by the action, so the PI gets data even
                 // if willAppear hasn't arrived for this context yet.
-                sendCalendarList(context: context)
+                sendPanelData(context: context)
             }
         default:
             break
         }
     }
 
-    private func sendCalendarList(context: String) {
+    // Everything the settings panel needs: calendars to filter by, calendar apps
+    // the key can open, and whether calendar access was refused.
+    private func sendPanelData(context: String) {
         let calendars = CalendarManager.readCalendarsFromSharedFile()
             .map { ["id": $0.id, "title": $0.title, "color": $0.hexColor] }
         sendToPropertyInspector(context: context, payload: [
             "calendars": calendars,
+            "apps": AppLauncher.installedCalendarApps(),
             "needsPermission": CalendarManager.accessDenied()
         ])
     }

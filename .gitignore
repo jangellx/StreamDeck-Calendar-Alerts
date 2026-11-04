@@ -12,3 +12,4 @@ DerivedData/
 
 # deploy.sh build output
 .build/
+dist/

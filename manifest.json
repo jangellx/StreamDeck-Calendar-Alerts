@@ -1,22 +1,26 @@
 {
   "Author": "Joe Angell",
   "CodePath": "StreamDeck Calendar Alerts",
-  "Description": "Shows your next calendar appointment with color-coded urgency. Tap to open Calendar.",
+  "Description": "Shows your next calendar event with a color-coded countdown and alert sounds. Press to open your calendar app.",
   "Name": "Calendar Alerts",
+  "Category": "Calendar Alerts",
+  "CategoryIcon": "Images/category",
   "Actions": [
     {
       "Icon": "Images/action",
       "Name": "Next Appointment",
+      "Tooltip": "Counts down to your next calendar event today",
       "PropertyInspectorPath": "propertyinspector/index.html",
-      "States": [{ "Image": "Images/action" }],
+      "States": [{ "Image": "Images/key" }],
       "SupportedInMultiActions": false,
       "UUID": "com.joeangell.calendar-alerts.nextappointment"
     }
   ],
   "Icon": "Images/pluginIcon",
+  "URL": "https://github.com/jangellx/StreamDeck-Calendar-Alerts",
   "SDKVersion": 2,
   "Software": { "MinimumVersion": "5.0" },
   "OS": [{ "Platform": "mac", "MinimumVersion": "14.0" }],
   "UUID": "com.joeangell.calendar-alerts",
-  "Version": "1.0.0"
+  "Version": "1.0.0.0"
 }

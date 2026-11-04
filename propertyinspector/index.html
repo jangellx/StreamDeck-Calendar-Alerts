@@ -18,8 +18,9 @@
             font-size: 8pt;
             text-transform: uppercase;
             letter-spacing: 0.6px;
-            margin: 10px 0 6px;
+            margin: 14px 0 6px;
         }
+        .section-label:first-child { margin-top: 10px; }
 
         .calendar-row {
             display: flex;
@@ -53,7 +54,7 @@
         .hint {
             color: #777;
             font-size: 8pt;
-            margin-top: 10px;
+            margin-top: 6px;
             font-style: italic;
         }
 
@@ -62,6 +63,40 @@
             font-style: italic;
             margin-top: 6px;
         }
+
+        select, input[type="text"] {
+            width: 100%;
+            background: #3d3d3d;
+            color: #d8d8d8;
+            border: 1px solid #555;
+            border-radius: 3px;
+            padding: 4px 6px;
+            font: inherit;
+        }
+        input[type="text"] { margin-top: 6px; }
+        select:focus, input[type="text"]:focus { outline: none; border-color: #888; }
+
+        .drop-zone {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 6px;
+            padding: 8px;
+            border: 1px dashed #666;
+            border-radius: 4px;
+        }
+        .drop-zone.dragging { border-color: #9cf; background: #33404d; }
+        .drop-zone img {
+            width: 48px;
+            height: 48px;
+            border-radius: 6px;
+            background: #000;
+            flex-shrink: 0;
+            object-fit: contain;
+        }
+        .drop-zone img:not([src]) { visibility: hidden; }
+        .link { color: #9cf; cursor: pointer; text-decoration: underline; }
+        .hidden { display: none; }
     </style>
 </head>
 <body>
@@ -69,43 +104,76 @@
     <div id="list"><div class="loading">Loading calendars…</div></div>
     <div class="hint" id="hint"></div>
 
+    <div class="section-label">When pressed, open</div>
+    <select id="openApp"></select>
+    <input id="openURL" type="text" class="hidden" placeholder="e.g. calendar.google.com" spellcheck="false">
+
+    <div class="section-label">When there are no more events</div>
+    <select id="noEventsStyle">
+        <option value="smile">Smiling calendar (light)</option>
+        <option value="smile-dark">Smiling calendar (dark)</option>
+        <option value="check">Checkmark</option>
+        <option value="thumbs">Thumbs up 👍</option>
+        <option value="text">Text only</option>
+        <option value="custom">Your own image…</option>
+    </select>
+    <div id="dropZone" class="drop-zone hidden">
+        <img id="customPreview" alt="">
+        <div>Drag an image here, or <span class="link" id="chooseImage">choose a file</span>.</div>
+        <input id="imageFile" type="file" accept="image/*" class="hidden">
+    </div>
+
     <script>
         // piUUID identifies this Property Inspector. Stream Deck requires it as the
         // "context" of every message the PI sends (sendToPlugin, setSettings) and
         // rejects messages that use the action instance's context instead.
         var ws, piUUID, actionID;
         var allCalendars = [];
-        var selectedIDs = [];
+        var apps = [];
         var retries = 0, MAX_RETRIES = 15;
+        var KEY_IMAGE_SIZE = 144;   // keys are drawn at 144×144 px
 
-        // Ask the plugin for the current calendar list.
-        function requestCalendars() {
-            ws.send(JSON.stringify({
-                event: 'sendToPlugin',
-                action: actionID,
-                context: piUUID,
-                payload: { request: 'getCalendars' }
-            }));
+        // All of this key's settings. setSettings replaces the whole object, so
+        // every save sends every field.
+        var settings = {
+            selectedCalendars: [],      // empty means "all calendars"
+            openApp: 'com.apple.iCal',  // a bundle ID, or 'url'
+            openURL: '',
+            noEventsStyle: 'smile',     // smile | smile-dark | check | thumbs | text | custom
+            noEventsImage: ''           // data: URL when noEventsStyle is 'custom'
+        };
+
+        function applySettings(s) {
+            s = s || {};
+            settings.selectedCalendars = s.selectedCalendars || [];
+            settings.openApp = s.openApp || 'com.apple.iCal';
+            settings.openURL = s.openURL || '';
+            settings.noEventsStyle = s.noEventsStyle || 'smile';
+            settings.noEventsImage = s.noEventsImage || '';
         }
 
         function connectElgatoStreamDeckSocket(inPort, inUUID, inRegisterEvent, inInfo, inActionInfo) {
             var actionInfo = JSON.parse(inActionInfo);
-            piUUID    = inUUID;
-            actionID  = actionInfo.action;
-
-            var settings = (actionInfo.payload && actionInfo.payload.settings) || {};
-            selectedIDs = settings.selectedCalendars || [];
+            piUUID   = inUUID;
+            actionID = actionInfo.action;
+            applySettings(actionInfo.payload && actionInfo.payload.settings);
+            renderOpenApp();
+            renderNoEvents();
 
             ws = new WebSocket('ws://127.0.0.1:' + inPort);
 
             ws.onopen = function() {
                 ws.send(JSON.stringify({ event: inRegisterEvent, uuid: inUUID }));
-                requestCalendars();
+                requestPanelData();
             };
 
             ws.onmessage = function(evt) {
                 var msg = JSON.parse(evt.data);
                 if (msg.event === 'sendToPropertyInspector' && msg.payload) {
+                    if (msg.payload.apps) {
+                        apps = msg.payload.apps;
+                        renderOpenApp();
+                    }
                     if (msg.payload.needsPermission) {
                         document.getElementById('list').innerHTML =
                             '<div class="loading">⚠️ Calendar access not granted.<br>' +
@@ -120,20 +188,41 @@
                         // after Stream Deck starts), so ask again for a little while.
                         if (allCalendars.length === 0 && retries < MAX_RETRIES) {
                             retries++;
-                            setTimeout(requestCalendars, 2000);
+                            setTimeout(requestPanelData, 2000);
                             return;
                         }
-                        render();
+                        renderCalendars();
                     }
                 } else if (msg.event === 'didReceiveSettings') {
-                    var s = msg.payload && msg.payload.settings || {};
-                    selectedIDs = s.selectedCalendars || [];
-                    render();
+                    applySettings(msg.payload && msg.payload.settings);
+                    renderCalendars();
+                    renderOpenApp();
+                    renderNoEvents();
                 }
             };
         }
 
-        function render() {
+        // Ask the plugin for calendars, calendar apps, and permission status.
+        function requestPanelData() {
+            ws.send(JSON.stringify({
+                event: 'sendToPlugin',
+                action: actionID,
+                context: piUUID,
+                payload: { request: 'getPanelData' }
+            }));
+        }
+
+        function save() {
+            ws.send(JSON.stringify({
+                event: 'setSettings',
+                context: piUUID,
+                payload: settings
+            }));
+        }
+
+        // MARK: Calendars
+
+        function renderCalendars() {
             var list = document.getElementById('list');
             list.innerHTML = '';
 
@@ -143,6 +232,7 @@
                 return;
             }
 
+            var selectedIDs = settings.selectedCalendars;
             allCalendars.forEach(function(cal) {
                 var isChecked = selectedIDs.length === 0 || selectedIDs.indexOf(cal.id) !== -1;
 
@@ -155,9 +245,9 @@
                 cb.addEventListener('change', function() {
                     // An empty list means "all calendars", so expand it to the
                     // full set of IDs before adding or removing one.
-                    var current = selectedIDs.length === 0
+                    var current = settings.selectedCalendars.length === 0
                         ? allCalendars.map(function(c) { return c.id; })
-                        : selectedIDs.slice();
+                        : settings.selectedCalendars.slice();
 
                     if (cb.checked) {
                         if (current.indexOf(cal.id) === -1) current.push(cal.id);
@@ -179,7 +269,9 @@
                     var allChecked = allCalendars.every(function(c) {
                         return current.indexOf(c.id) !== -1;
                     });
-                    save(allChecked ? [] : current);
+                    settings.selectedCalendars = allChecked ? [] : current;
+                    save();
+                    updateHint();
                 });
 
                 var dot = document.createElement('div');
@@ -199,18 +291,9 @@
             updateHint();
         }
 
-        function save(ids) {
-            selectedIDs = ids;
-            ws.send(JSON.stringify({
-                event: 'setSettings',
-                context: piUUID,
-                payload: { selectedCalendars: ids }
-            }));
-            updateHint();
-        }
-
         function updateHint() {
             var hint = document.getElementById('hint');
+            var selectedIDs = settings.selectedCalendars;
             if (selectedIDs.length === 0) {
                 hint.textContent = 'All calendars shown';
                 return;
@@ -220,6 +303,114 @@
                 return selectedIDs.indexOf(c.id) !== -1;
             }).length;
             hint.textContent = count + ' calendar' + (count !== 1 ? 's' : '') + ' selected';
+        }
+
+        // MARK: App to open
+
+        function renderOpenApp() {
+            var select = document.getElementById('openApp');
+            select.innerHTML = '';
+            var choices = apps.length ? apps.slice() : [{ id: 'com.apple.iCal', name: 'Calendar' }];
+
+            // Keep a saved app that's no longer installed visible, so the
+            // setting doesn't silently change.
+            var known = choices.some(function(a) { return a.id === settings.openApp; });
+            if (!known && settings.openApp !== 'url') {
+                choices.push({ id: settings.openApp, name: settings.openApp + ' (not found)' });
+            }
+            choices.push({ id: 'url', name: 'Web page or URL…' });
+
+            choices.forEach(function(a) {
+                var option = document.createElement('option');
+                option.value = a.id;
+                option.textContent = a.name;
+                select.appendChild(option);
+            });
+            select.value = settings.openApp;
+
+            var urlField = document.getElementById('openURL');
+            urlField.value = settings.openURL;
+            urlField.classList.toggle('hidden', settings.openApp !== 'url');
+        }
+
+        document.getElementById('openApp').addEventListener('change', function(e) {
+            settings.openApp = e.target.value;
+            document.getElementById('openURL').classList.toggle('hidden', settings.openApp !== 'url');
+            save();
+        });
+
+        document.getElementById('openURL').addEventListener('change', function(e) {
+            settings.openURL = e.target.value.trim();
+            save();
+        });
+
+        // MARK: No-events image
+
+        function renderNoEvents() {
+            document.getElementById('noEventsStyle').value = settings.noEventsStyle;
+            document.getElementById('dropZone').classList.toggle('hidden', settings.noEventsStyle !== 'custom');
+            var preview = document.getElementById('customPreview');
+            if (settings.noEventsImage) {
+                preview.src = settings.noEventsImage;
+            } else {
+                preview.removeAttribute('src');
+            }
+        }
+
+        document.getElementById('noEventsStyle').addEventListener('change', function(e) {
+            settings.noEventsStyle = e.target.value;
+            renderNoEvents();
+            save();
+        });
+
+        var dropZone = document.getElementById('dropZone');
+        ['dragenter', 'dragover'].forEach(function(type) {
+            dropZone.addEventListener(type, function(e) {
+                e.preventDefault();
+                dropZone.classList.add('dragging');
+            });
+        });
+        ['dragleave', 'drop'].forEach(function(type) {
+            dropZone.addEventListener(type, function(e) {
+                e.preventDefault();
+                dropZone.classList.remove('dragging');
+            });
+        });
+        dropZone.addEventListener('drop', function(e) {
+            var file = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+            if (file) useImageFile(file);
+        });
+
+        document.getElementById('chooseImage').addEventListener('click', function() {
+            document.getElementById('imageFile').click();
+        });
+        document.getElementById('imageFile').addEventListener('change', function(e) {
+            if (e.target.files[0]) useImageFile(e.target.files[0]);
+            e.target.value = '';
+        });
+
+        // Scale the image to fit a key (keeping its proportions) and store it in
+        // the key's settings as a PNG data: URL.
+        function useImageFile(file) {
+            if (!/^image\//.test(file.type)) return;
+            var reader = new FileReader();
+            reader.onload = function() {
+                var img = new Image();
+                img.onload = function() {
+                    var canvas = document.createElement('canvas');
+                    canvas.width = canvas.height = KEY_IMAGE_SIZE;
+                    var ctx = canvas.getContext('2d');
+                    var scale = Math.min(KEY_IMAGE_SIZE / img.width, KEY_IMAGE_SIZE / img.height);
+                    var w = img.width * scale, h = img.height * scale;
+                    ctx.drawImage(img, (KEY_IMAGE_SIZE - w) / 2, (KEY_IMAGE_SIZE - h) / 2, w, h);
+                    settings.noEventsImage = canvas.toDataURL('image/png');
+                    settings.noEventsStyle = 'custom';
+                    renderNoEvents();
+                    save();
+                };
+                img.src = reader.result;
+            };
+            reader.readAsDataURL(file);
         }
     </script>
 </body>

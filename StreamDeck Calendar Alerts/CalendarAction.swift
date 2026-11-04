@@ -11,7 +11,13 @@ final class CalendarAction {
     private var currentEvent: SharedEvent?
     private var currentEventKey: String?
     private var soundsPlayed: Set<Int> = []
-    private var selectedCalendarIDs: Set<String> = []
+
+    // Per-key settings, saved by the property inspector.
+    private var selectedCalendarIDs: Set<String> = []          // empty = all calendars
+    private var openApp = AppLauncher.appleCalendarID          // bundle ID, or AppLauncher.urlChoice
+    private var openURL = ""
+    private var noEventsStyle = "smile"                         // smile | smile-dark | check | thumbs | text | custom
+    private var noEventsImage = ""                              // data: URL for "custom"
 
     private static let alertMinutes: Set<Int> = [60, 30, 15, 5]
 
@@ -21,8 +27,11 @@ final class CalendarAction {
     }
 
     func applySettings(_ settings: [String: Any]) {
-        let ids = settings["selectedCalendars"] as? [String] ?? []
-        selectedCalendarIDs = Set(ids)
+        selectedCalendarIDs = Set(settings["selectedCalendars"] as? [String] ?? [])
+        openApp       = settings["openApp"] as? String ?? AppLauncher.appleCalendarID
+        openURL       = settings["openURL"] as? String ?? ""
+        noEventsStyle = settings["noEventsStyle"] as? String ?? "smile"
+        noEventsImage = settings["noEventsImage"] as? String ?? ""
         if minuteTimer != nil { update() }
     }
 
@@ -59,7 +68,7 @@ final class CalendarAction {
 
         guard let event = CalendarManager.nextEventFromSharedFile(filteredTo: selectedCalendarIDs) else {
             resetEventState()
-            sendImage(ButtonImageRenderer.shared.renderNoMeetings())
+            sendImage(ButtonImageRenderer.shared.renderNoEvents(style: noEventsStyle, customImage: noEventsImage))
             return
         }
 
@@ -134,10 +143,7 @@ final class CalendarAction {
         ])
     }
 
-    func openCalendar() {
-        let proc = Process()
-        proc.executableURL = URL(fileURLWithPath: "/usr/bin/open")
-        proc.arguments = ["-a", "Calendar"]
-        try? proc.run()
+    func openConfiguredApp() {
+        AppLauncher.open(app: openApp, url: openURL)
     }
 }

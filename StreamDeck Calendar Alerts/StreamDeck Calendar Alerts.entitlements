@@ -2,9 +2,7 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-    <key>com.apple.application-identifier</key>
-    <string>9259PET5M4.com.joeangell.calendar-alerts</string>
-    <key>com.apple.security.personal-information.calendars</key>
-    <true/>
+	<key>com.apple.security.personal-information.calendars</key>
+	<true/>
 </dict>
 </plist>
