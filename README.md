@@ -17,6 +17,8 @@ A Stream Deck plugin for macOS that puts your next calendar event on a key. It c
 
 **[Download the installer](https://github.com/jangellx/StreamDeck-Calendar-Alerts/releases/latest/download/com.joeangell.calendar-alerts.streamDeckPlugin)**. Requires macOS 14 or later and Stream Deck 6.4 or later.
 
+The plugin's website is **[sdcalendaralerts.tmproductions.com](https://sdcalendaralerts.tmproductions.com/)**.
+
 ## What it shows
 
 The key shows the title of your next event today and how long until it starts:
