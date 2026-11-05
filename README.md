@@ -15,7 +15,7 @@ A Stream Deck plugin for macOS that puts your next calendar event on a key. It c
 <img src="docs/images/no-events-moon.png" width="72" alt="No more events: tonight's moon">
 </p>
 
-**[Download the installer](https://github.com/jangellx/StreamDeck-Calendar-Alerts/releases/latest/download/com.joeangell.calendar-alerts.streamDeckPlugin)**. Requires macOS 14 or later and the Stream Deck app.
+**[Download the installer](https://github.com/jangellx/StreamDeck-Calendar-Alerts/releases/latest/download/com.joeangell.calendar-alerts.streamDeckPlugin)**. Requires macOS 14 or later and Stream Deck 6.4 or later.
 
 ## What it shows
 

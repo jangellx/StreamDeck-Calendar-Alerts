@@ -19,7 +19,7 @@
   "Icon": "Images/pluginIcon",
   "URL": "https://github.com/jangellx/StreamDeck-Calendar-Alerts",
   "SDKVersion": 2,
-  "Software": { "MinimumVersion": "5.0" },
+  "Software": { "MinimumVersion": "6.4" },
   "OS": [{ "Platform": "mac", "MinimumVersion": "14.0" }],
   "UUID": "com.joeangell.calendar-alerts",
   "Version": "1.0.0.0"
