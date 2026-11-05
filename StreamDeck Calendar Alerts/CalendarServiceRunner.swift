@@ -102,15 +102,18 @@ final class CalendarServiceRunner {
         let now = Date()
         guard let endOfDay = Calendar.current.date(bySettingHour: 23, minute: 59, second: 59, of: now) else { return }
 
+        // Timed events still to come today, plus all-day events covering today
+        // (they started at midnight, so they're kept regardless of start time).
         let pred = store.predicateForEvents(withStart: now, end: endOfDay, calendars: nil)
         let events = store.events(matching: pred)
-            .filter { $0.startDate > now && !$0.isAllDay && !Self.isCanceledOrDeclined($0) }
+            .filter { ($0.isAllDay || $0.startDate > now) && !Self.isCanceledOrDeclined($0) }
             .sorted { $0.startDate < $1.startDate }
             .map { event -> [String: Any] in
                 [
                     "title": event.title ?? "",
                     "startDate": event.startDate.timeIntervalSince1970,
                     "endDate": event.endDate.timeIntervalSince1970,
+                    "allDay": event.isAllDay,
                     "identifier": event.eventIdentifier ?? "",
                     "calendarIdentifier": event.calendar?.calendarIdentifier ?? "",
                     // Used to open the event in other apps when the key is pressed.

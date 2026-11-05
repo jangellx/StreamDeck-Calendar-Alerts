@@ -97,6 +97,17 @@
             object-fit: contain;
         }
         .drop-zone img:not([src]) { visibility: hidden; }
+        .indented { padding-left: 20px; }
+        .disabled { opacity: 0.45; }
+        input[type="time"] {
+            background: #3d3d3d;
+            color: #d8d8d8;
+            border: 1px solid #555;
+            border-radius: 3px;
+            padding: 1px 4px;
+            font: inherit;
+            color-scheme: dark;
+        }
         .link { color: #9cf; cursor: pointer; text-decoration: underline; }
         .hidden { display: none; }
     </style>
@@ -105,6 +116,22 @@
     <div class="section-label">Show events from</div>
     <div id="list"><div class="loading">Loading calendars…</div></div>
     <div class="hint" id="hint"></div>
+
+    <div class="section-label">All-day events</div>
+    <label class="calendar-row"><input type="checkbox" id="showAllDay"> Show when nothing else is left today</label>
+    <div id="allDayOptions" class="indented">
+        <label class="calendar-row"><input type="checkbox" id="allDayCutoff"> Until <input type="time" id="allDayUntil" value="17:00"></label>
+    </div>
+
+    <div class="section-label">Alert sound</div>
+    <label class="calendar-row"><input type="checkbox" id="playAlerts"> Play an alert before each event</label>
+    <div id="alertOptions" class="indented">
+        <label class="calendar-row"><input type="checkbox" class="alertMinute" value="60"> 1 hour before</label>
+        <label class="calendar-row"><input type="checkbox" class="alertMinute" value="30"> 30 minutes before</label>
+        <label class="calendar-row"><input type="checkbox" class="alertMinute" value="15"> 15 minutes before</label>
+        <label class="calendar-row"><input type="checkbox" class="alertMinute" value="5"> 5 minutes before</label>
+        <label class="calendar-row"><input type="checkbox" id="alertEveryMinute"> Every minute for the last 5 minutes</label>
+    </div>
 
     <div class="section-label">When pressed, open</div>
     <select id="openApp"></select>
@@ -117,6 +144,8 @@
         <option value="moon">Moon phase</option>
         <option value="smile">Smiling calendar (light)</option>
         <option value="smile-dark">Smiling calendar (dark)</option>
+        <option value="loop">Infinity clock (light)</option>
+        <option value="loop-dark">Infinity clock (dark)</option>
         <option value="check">Checkmark Calendar</option>
         <option value="check-emoji">Checkmark ✅</option>
         <option value="thumbs">Thumbs up 👍</option>
@@ -151,13 +180,24 @@
             selectedCalendars: [],      // empty means "all calendars"
             openApp: 'com.apple.iCal',  // a bundle ID, a 'web:' id, or 'url'
             openURL: '',
-            noEventsStyle: 'moon',      // moon | smile | smile-dark | check | check-emoji | thumbs | crescent | text | message | custom
+            noEventsStyle: 'moon',      // moon | smile | smile-dark | loop | loop-dark | check | check-emoji | thumbs | crescent | text | message | custom
             noEventsMessage: '',        // the key's text when noEventsStyle is 'message'
-            noEventsImage: ''           // data: URL when noEventsStyle is 'custom'
+            noEventsImage: '',          // data: URL when noEventsStyle is 'custom'
+            showAllDay: true,           // show all-day events when no timed event is left today
+            allDayUntil: '',            // 'HH:MM' to stop showing them then; '' = all day
+            playAlerts: true,
+            alertMinutes: [60, 30, 15, 5],
+            alertEveryMinute: false     // also alert at 4, 3, 2 and 1 minutes
         };
+        var DEFAULT_CUTOFF = '17:00';
 
         function applySettings(s) {
             s = s || {};
+            settings.showAllDay = s.showAllDay !== false;
+            settings.allDayUntil = s.allDayUntil || '';
+            settings.playAlerts = s.playAlerts !== false;
+            settings.alertMinutes = Array.isArray(s.alertMinutes) ? s.alertMinutes : [60, 30, 15, 5];
+            settings.alertEveryMinute = s.alertEveryMinute === true;
             settings.selectedCalendars = s.selectedCalendars || [];
             settings.openApp = s.openApp || 'com.apple.iCal';
             settings.openURL = s.openURL || '';
@@ -173,6 +213,8 @@
             applySettings(actionInfo.payload && actionInfo.payload.settings);
             renderOpenApp();
             renderNoEvents();
+            renderAllDay();
+            renderAlerts();
 
             ws = new WebSocket('ws://127.0.0.1:' + inPort);
 
@@ -214,6 +256,8 @@
                     renderCalendars();
                     renderOpenApp();
                     renderNoEvents();
+                    renderAllDay();
+                    renderAlerts();
                 }
             };
         }
@@ -320,6 +364,71 @@
             }).length;
             hint.textContent = count + ' calendar' + (count !== 1 ? 's' : '') + ' selected';
         }
+
+        // MARK: All-day events
+
+        function renderAllDay() {
+            var show = document.getElementById('showAllDay');
+            var cutoff = document.getElementById('allDayCutoff');
+            var time = document.getElementById('allDayUntil');
+            show.checked = settings.showAllDay;
+            cutoff.checked = settings.allDayUntil !== '';
+            if (settings.allDayUntil) time.value = settings.allDayUntil;
+            cutoff.disabled = time.disabled = !settings.showAllDay;
+            document.getElementById('allDayOptions').classList.toggle('disabled', !settings.showAllDay);
+        }
+
+        document.getElementById('showAllDay').addEventListener('change', function(e) {
+            settings.showAllDay = e.target.checked;
+            renderAllDay();
+            save();
+        });
+        document.getElementById('allDayCutoff').addEventListener('change', function(e) {
+            settings.allDayUntil = e.target.checked
+                ? (document.getElementById('allDayUntil').value || DEFAULT_CUTOFF) : '';
+            renderAllDay();
+            save();
+        });
+        document.getElementById('allDayUntil').addEventListener('change', function(e) {
+            // Picking a time turns the cut-off on.
+            if (!e.target.value) return;
+            settings.allDayUntil = e.target.value;
+            renderAllDay();
+            save();
+        });
+
+        // MARK: Alert sound
+
+        function renderAlerts() {
+            document.getElementById('playAlerts').checked = settings.playAlerts;
+            Array.prototype.forEach.call(document.querySelectorAll('.alertMinute'), function(cb) {
+                cb.checked = settings.alertMinutes.indexOf(Number(cb.value)) !== -1;
+                cb.disabled = !settings.playAlerts;
+            });
+            var every = document.getElementById('alertEveryMinute');
+            every.checked = settings.alertEveryMinute;
+            every.disabled = !settings.playAlerts;
+            document.getElementById('alertOptions').classList.toggle('disabled', !settings.playAlerts);
+        }
+
+        document.getElementById('playAlerts').addEventListener('change', function(e) {
+            settings.playAlerts = e.target.checked;
+            renderAlerts();
+            save();
+        });
+        Array.prototype.forEach.call(document.querySelectorAll('.alertMinute'), function(cb) {
+            cb.addEventListener('change', function() {
+                var minutes = Number(cb.value);
+                var list = settings.alertMinutes.filter(function(m) { return m !== minutes; });
+                if (cb.checked) list.push(minutes);
+                settings.alertMinutes = list.sort(function(a, b) { return b - a; });
+                save();
+            });
+        });
+        document.getElementById('alertEveryMinute').addEventListener('change', function(e) {
+            settings.alertEveryMinute = e.target.checked;
+            save();
+        });
 
         // MARK: App to open
         //

@@ -73,9 +73,32 @@ final class ButtonImageRenderer {
         return toPNGDataURI(ctx)
     }
 
+    // An all-day event, shown when no timed event is left today: the title as
+    // for a timed event, with "All day" in place of the countdown. `others` is
+    // how many more all-day events there are today ("All day +2").
+    func renderAllDay(title: String, others: Int = 0) -> String {
+        guard let ctx = makeKeyContext() else { return "" }
+        Self.fillKeyBackground(ctx, size: size)
+        withNSGraphicsContext(ctx) {
+            draw(others > 0 ? "All day +\(others)" : "All day",
+                 font: .boldSystemFont(ofSize: 13),
+                 color: NSColor(white: 0.62, alpha: 1),
+                 alignment: .center,
+                 in: CGRect(x: 2, y: 3, width: 68, height: 18))
+            draw(cleanTitle(title),
+                 font: .boldSystemFont(ofSize: 11),
+                 color: .white,
+                 alignment: .left,
+                 in: CGRect(x: 4, y: 24, width: 64, height: 44))
+        }
+        return toPNGDataURI(ctx)
+    }
+
     // What the key shows when there are no more events today. Styles:
     //   "smile"      – the bundled smiling calendar, light version
     //   "smile-dark" – the same, dark version
+    //   "loop"       – the bundled infinity-and-ticks icon (Perpetual's ClockLoop), light version
+    //   "loop-dark"  – the same, dark version
     //   "check"      – a drawn red calendar with a white checkmark and "All clear"
     //   "check-emoji" – a checkmark emoji
     //   "moon"       – today's moon phase (NASA images, bundled; see MoonPhase) (default)
@@ -107,6 +130,10 @@ final class ButtonImageRenderer {
             return renderEmoji("🌙")
         case "smile":
             return bundledImage("no-events-light") ?? renderAllClear()
+        case "loop":
+            return bundledImage("no-events-loop-light") ?? renderAllClear()
+        case "loop-dark":
+            return bundledImage("no-events-loop-dark") ?? renderAllClear()
         default:  // "moon", and any unknown style
             return bundledImage(MoonPhase.imageName(onDayOf: Date())) ?? renderEmoji("🌙")
         }

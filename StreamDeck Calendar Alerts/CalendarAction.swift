@@ -16,11 +16,16 @@ final class CalendarAction {
     private var selectedCalendarIDs: Set<String> = []          // empty = all calendars
     private var openApp = AppLauncher.appleCalendarID          // bundle ID, or AppLauncher.urlChoice
     private var openURL = ""
-    private var noEventsStyle = "moon"                          // moon | smile | smile-dark | check | check-emoji | thumbs | crescent | text | message | custom
+    private var noEventsStyle = "moon"                          // see ButtonImageRenderer.renderNoEvents
     private var noEventsMessage = ""                            // the user's words for "message"
     private var noEventsImage = ""                              // data: URL for "custom"
+    private var showAllDay = true                               // show all-day events when nothing else is left
+    private var allDayUntil: Int?                               // minutes after midnight to stop showing them; nil = all day
+    private var playAlerts = true
+    private var alertMinutes: Set<Int> = CalendarAction.defaultAlertMinutes
+    private var alertEveryMinute = false                        // also at 4, 3, 2 and 1 minutes
 
-    private static let alertMinutes: Set<Int> = [60, 30, 15, 5]
+    static let defaultAlertMinutes: Set<Int> = [60, 30, 15, 5]
 
     init(context: String, plugin: StreamDeckPlugin) {
         self.context = context
@@ -34,7 +39,35 @@ final class CalendarAction {
         noEventsStyle = settings["noEventsStyle"] as? String ?? "moon"
         noEventsMessage = settings["noEventsMessage"] as? String ?? ""
         noEventsImage = settings["noEventsImage"] as? String ?? ""
+        showAllDay    = settings["showAllDay"] as? Bool ?? true
+        allDayUntil   = Self.minutesAfterMidnight(settings["allDayUntil"] as? String ?? "")
+        playAlerts    = settings["playAlerts"] as? Bool ?? true
+        alertMinutes  = (settings["alertMinutes"] as? [Int]).map(Set.init) ?? Self.defaultAlertMinutes
+        alertEveryMinute = settings["alertEveryMinute"] as? Bool ?? false
         if minuteTimer != nil { update() }
+    }
+
+    // "17:30" → 1050. Anything else (including "") → nil.
+    private static func minutesAfterMidnight(_ time: String) -> Int? {
+        let parts = time.split(separator: ":").compactMap { Int($0) }
+        guard parts.count == 2, (0..<24).contains(parts[0]), (0..<60).contains(parts[1]) else { return nil }
+        return parts[0] * 60 + parts[1]
+    }
+
+    // Whether an alert should sound this many minutes before an event.
+    private func alertsAt(_ minutes: Int) -> Bool {
+        guard playAlerts else { return false }
+        return alertMinutes.contains(minutes) || (alertEveryMinute && (1...5).contains(minutes))
+    }
+
+    // The all-day event to show when no timed event is left today, if any.
+    private func allDayEventToShow(_ events: [SharedEvent]) -> SharedEvent? {
+        guard showAllDay, let first = events.first else { return nil }
+        if let cutoff = allDayUntil {
+            let now = Calendar.current.dateComponents([.hour, .minute], from: Date())
+            if (now.hour ?? 0) * 60 + (now.minute ?? 0) >= cutoff { return nil }
+        }
+        return first
     }
 
     func start() {
@@ -68,10 +101,18 @@ final class CalendarAction {
             return
         }
 
-        guard let event = CalendarManager.nextEventFromSharedFile(filteredTo: selectedCalendarIDs) else {
+        let today = CalendarManager.todaysEventsFromSharedFile(filteredTo: selectedCalendarIDs)
+        guard let event = today.next else {
             resetEventState()
-            sendImage(ButtonImageRenderer.shared.renderNoEvents(style: noEventsStyle, customImage: noEventsImage,
-                                                                customMessage: noEventsMessage))
+            if let allDay = allDayEventToShow(today.allDay) {
+                // Pressing the key opens it, like a timed event.
+                currentEvent = allDay
+                sendImage(ButtonImageRenderer.shared.renderAllDay(title: allDay.title,
+                                                                  others: today.allDay.count - 1))
+            } else {
+                sendImage(ButtonImageRenderer.shared.renderNoEvents(style: noEventsStyle, customImage: noEventsImage,
+                                                                    customMessage: noEventsMessage))
+            }
             return
         }
 
@@ -86,7 +127,7 @@ final class CalendarAction {
         let secondsUntil = event.startDate.timeIntervalSinceNow
         let minutesUntil = Int((secondsUntil / 60).rounded(.up))
 
-        if Self.alertMinutes.contains(minutesUntil), !soundsPlayed.contains(minutesUntil) {
+        if alertsAt(minutesUntil), !soundsPlayed.contains(minutesUntil) {
             soundsPlayed.insert(minutesUntil)
             AudioServicesPlaySystemSound(kSystemSoundID_UserPreferredAlert)
         }
