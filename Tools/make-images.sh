@@ -3,6 +3,7 @@
 # running when the artwork changes.
 #
 #   Images/pluginIcon, key, no-events-* exported from the ClockLoop and Bandit app
+#     (no-events-light/dark are Bandit; no-events-loop-light/dark are ClockLoop)
 #                                       icons in Joe Angell's Perpetual project
 #                                       (skipped if that project isn't next to this one;
 #                                       set PERPETUAL_ICONS to its Icons folder)
@@ -39,6 +40,8 @@ if [ -d "${PERPETUAL_ICONS}" ] && [ -x "${ICTOOL}" ]; then
     export_icon ClockLoop key 72 Default           # default key image: 72 px, 144 px @2x
     export_icon Bandit no-events-light 72 Default  # "no more events" key images,
     export_icon Bandit no-events-dark 72 Dark      #   light and dark choices
+    export_icon ClockLoop no-events-loop-light 72 Default
+    export_icon ClockLoop no-events-loop-dark 72 Dark
 else
     echo "==> Skipping Perpetual icons (not found at ${PERPETUAL_ICONS}, or Icon Composer missing)"
 fi

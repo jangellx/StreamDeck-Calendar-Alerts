@@ -12,6 +12,7 @@ A Stream Deck plugin for macOS that puts your next calendar event on a key. It c
 <img src="docs/images/key-8m.png" width="72" alt="8 minutes">
 <img src="docs/images/key-3m.png" width="72" alt="3 minutes">
 <img src="docs/images/key-now.png" width="72" alt="NOW">
+<img src="docs/images/key-all-day.png" width="72" alt="All day">
 <img src="docs/images/no-events-moon.png" width="72" alt="No more events: tonight's moon">
 </p>
 
@@ -33,8 +34,9 @@ The key shows the title of your next event today and how long until it starts:
 | 1–5 minutes | Red |
 | Final minute | Flashing red **NOW** |
 
-- Your Mac's alert sound plays at 60, 30, 15 and 5 minutes before each event.
-- Only events still to come today are shown. All-day events, cancelled events and events you've declined are skipped.
+- Your Mac's alert sound plays at 60, 30, 15 and 5 minutes before each event. You can choose other times, or turn it off (see below).
+- Only events still to come today are shown. Cancelled events and events you've declined are skipped.
+- When there are no timed events left today, the key shows today's all-day event instead, such as a birthday or a holiday, marked **All day**. If there's more than one, it shows the first and how many others there are (**All day +2**).
 - A leading room number is trimmed from titles, so "101 Team Standup" shows as "Team Standup".
 - When there's nothing left today, the key shows tonight's moon phase, or whichever image you've picked (see below).
 
@@ -43,6 +45,8 @@ The key shows the title of your next event today and how long until it starts:
 Select the key in the Stream Deck app to see its settings. Each key has its own, so you can have one key for work calendars and another for family.
 
 - **Show events from**: check the calendars to include. All of them are included until you uncheck one.
+- **All-day events**: uncheck **Show when nothing else is left today** to skip all-day events altogether. Check **Until** and pick a time to stop showing them at that time each day; after it, the key shows your "no more events" image instead.
+- **Alert sound**: uncheck **Play an alert before each event** for a silent key, or check the times you want: 1 hour, 30, 15 or 5 minutes before. **Every minute for the last 5 minutes** plays it at 5, 4, 3, 2 and 1 minutes before.
 - **When pressed, open**: the app or web calendar to open. The menu lists the calendar, meeting and task apps you have installed (such as Fantastical, BusyCal, Outlook, Zoom or Things), web calendars (Google Calendar, Outlook on the web, Outlook.com, iCloud and Proton Calendar), **Another app…** for any other app on your Mac, and **Web page or URL…**.
 
   Where an app supports it, pressing the key shows the event the key is counting down to:
@@ -56,12 +60,17 @@ Select the key in the Stream Deck app to see its settings. Each key has its own,
   | Google Calendar | The event's day, in the Google account the event belongs to |
   | Anything else | The app or page, as it last was |
 
-  When there are no more events today, the key just opens the app.
+  An all-day event on the key opens the same way. When there are no more events today, the key just opens the app.
 - **When there are no more events**: choose what the key shows.
 
-  <img src="docs/images/no-events-moon.png" width="56" alt="Moon phase"> <img src="docs/images/no-events-smile.png" width="56" alt="Smiling calendar (light)"> <img src="docs/images/no-events-smile-dark.png" width="56" alt="Smiling calendar (dark)"> <img src="docs/images/no-events-check.png" width="56" alt="Checkmark Calendar"> <img src="docs/images/no-events-text.png" width="56" alt="Text only">
+  <img src="docs/images/no-events-moon.png" width="56" alt="Moon phase"> <img src="docs/images/no-events-smile.png" width="56" alt="Smiling calendar (light)"> <img src="docs/images/no-events-smile-dark.png" width="56" alt="Smiling calendar (dark)"> <img src="docs/images/no-events-loop.png" width="56" alt="Infinity clock (light)"> <img src="docs/images/no-events-loop-dark.png" width="56" alt="Infinity clock (dark)"> <img src="docs/images/no-events-check.png" width="56" alt="Checkmark Calendar"> <img src="docs/images/no-events-text.png" width="56" alt="Text only">
 
-  The choices are tonight's actual moon phase (the default), a smiling calendar (light or dark), a checkmark calendar, a checkmark ✅, thumbs-up 👍 or crescent moon 🌙 emoji, the words "No more events today", or a message of your own. Choose **Your own message…** and type what the key should say; it's sized to fit the key, and line breaks you type are kept. You can also use your own image: choose **Your own image…**, then drag an image file onto the settings panel or click **choose a file**. It's scaled to fit the key.
+  - **Moon phase** (the default) shows tonight's actual moon.
+  - **Pictures:** a smiling calendar or an infinity clock (each in light or dark), or a checkmark calendar.
+  - **Emoji:** a checkmark ✅, a thumbs-up 👍 or a crescent moon 🌙.
+  - **Text only** shows the words "No more events today".
+  - **Your own message…** shows whatever you type. It's sized to fit the key, and line breaks you type are kept.
+  - **Your own image…** shows a picture of your choice. Drag an image file onto the settings panel, or click **choose a file**. It's scaled to fit the key.
 
 ## Install
 
@@ -146,5 +155,6 @@ To uninstall, quit Stream Deck and delete `~/Library/Application Support/com.elg
 
 - The idea, and the colors for each stage of the countdown, come from TJ Luoma's [icalbuddy-km-and-stream-deck](https://github.com/tjluoma/icalbuddy-km-and-stream-deck). It uses icalBuddy and Keyboard Maestro to show the time until your next meeting on a Stream Deck key.
 - I had trouble with the shell scripts, so I switched to Shortcuts before writing this plugin. That idea came from ringmaster's [iCal Daily Schedule via iOS/OSX Shortcut](https://forum.obsidian.md/t/ical-daily-schedule-via-ios-osx-shortcut/30686) on the Obsidian forum.
-- The plugin icon and the smiling calendar are from my app Perpetual. The moon-phase images are from NASA's Scientific Visualization Studio ([Dial-A-Moon](https://svs.gsfc.nasa.gov/gallery/moonphase/)), made from Lunar Reconnaissance Orbiter data, and the phase is worked out the way Perpetual does it. The other images are drawn in code.
+- The moon-phase images are courtesy of **NASA's Scientific Visualization Studio**, from its [Dial-A-Moon](https://svs.gsfc.nasa.gov/gallery/moonphase/) gallery, made with data from NASA's Lunar Reconnaissance Orbiter.
+- The plugin icon, the smiling calendar and the infinity clock are from my app Perpetual, and the moon phase is worked out the way Perpetual does it. The other images are drawn in code.
 - Opening an event in Apple Calendar uses the `ical://ekevent/` link that [MeetingBar](https://github.com/leits/MeetingBar) uses; Apple doesn't document it. The other apps' links come from their own documentation: [Fantastical](https://flexibits.com/fantastical/help/integration), [BusyCal](https://www.busymac.com/docs/busycal/70621-url-handler) and [Notion Calendar](https://cronhq.notion.site/Cron-API-c0ad725e3b654c64a6d3fa7ae71fa8b3).

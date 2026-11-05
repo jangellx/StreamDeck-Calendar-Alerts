@@ -12,6 +12,7 @@ struct SharedEvent {
     let endDate: Date
     let identifier: String
     let calendarIdentifier: String
+    var isAllDay = false
 
     // For opening the event in a calendar app (see AppLauncher.eventLink).
     var calendarItemIdentifier = ""     // EventKit's local ID; Apple Calendar's ical:// links
@@ -73,6 +74,7 @@ enum CalendarManager {
                 endDate: Date(timeIntervalSince1970: (dict["endDate"] as? TimeInterval) ?? startTS),
                 identifier: dict["identifier"] as? String ?? "",
                 calendarIdentifier: dict["calendarIdentifier"] as? String ?? "",
+                isAllDay: dict["allDay"] as? Bool ?? false,
                 calendarItemIdentifier: dict["calendarItemIdentifier"] as? String ?? "",
                 externalIdentifier: dict["externalIdentifier"] as? String ?? "",
                 calendarTitle: dict["calendarTitle"] as? String ?? "",
@@ -81,11 +83,21 @@ enum CalendarManager {
         }
     }
 
-    static func nextEventFromSharedFile(filteredTo calendarIDs: Set<String> = []) -> SharedEvent? {
+    // Today's events in the chosen calendars (all calendars when calendarIDs is empty):
+    // the next timed event still to come, and the all-day events covering now,
+    // in a steady order (by calendar, then title) so the key doesn't jump between them.
+    static func todaysEventsFromSharedFile(filteredTo calendarIDs: Set<String> = [])
+        -> (next: SharedEvent?, allDay: [SharedEvent]) {
         let now = Date()
-        return readEventsFromSharedFile()
-            .filter { $0.startDate > now && (calendarIDs.isEmpty || calendarIDs.contains($0.calendarIdentifier)) }
+        let events = readEventsFromSharedFile()
+            .filter { calendarIDs.isEmpty || calendarIDs.contains($0.calendarIdentifier) }
+        let next = events
+            .filter { !$0.isAllDay && $0.startDate > now }
             .min { $0.startDate < $1.startDate }
+        let allDay = events
+            .filter { $0.isAllDay && $0.startDate <= now && $0.endDate > now }
+            .sorted { ($0.calendarTitle, $0.title) < ($1.calendarTitle, $1.title) }
+        return (next, allDay)
     }
 
     static func readCalendarsFromSharedFile() -> [CalendarInfo] {

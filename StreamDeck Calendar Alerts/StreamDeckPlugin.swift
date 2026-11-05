@@ -88,7 +88,9 @@ final class StreamDeckPlugin: NSObject {
     // Everything the settings panel needs: calendars to filter by, apps the key
     // can open, and whether calendar access was refused.
     private func sendPanelData(context: String) {
+        // Alphabetical, the way Finder sorts names (case-insensitive, "2" before "10").
         let calendars = CalendarManager.readCalendarsFromSharedFile()
+            .sorted { $0.title.localizedStandardCompare($1.title) == .orderedAscending }
             .map { ["id": $0.id, "title": $0.title, "color": $0.hexColor] }
         sendToPropertyInspector(context: context, payload: [
             "calendars": calendars,
