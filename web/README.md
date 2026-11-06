@@ -1,6 +1,6 @@
 # Calendar Alerts site
 
-The site is published at https://sdcalendaralerts.tmproductions.com/. `index.html` is the plugin's home page, with its pictures in `images/` (copies of the ones in `docs/images`, the plugin icon as `icon.png`, and `og-image.png`, the 1200 × 627 link preview). `privacy/index.html` is the privacy page. The favicons are the plugin icon, resized.
+The site is published at https://sdcalendaralerts.tmproductions.com/. `index.html` is the plugin's home page, with its pictures in `images/` (copies of the ones in `docs/images`, the thirty moon phases from `Images/` in `images/moon/` so the page can show tonight's moon the way the plugin works it out, the plugin icon as `icon.png`, and `og-image.png`, the 1200 × 627 link preview). `privacy/index.html` is the privacy page. The favicons are the plugin icon, resized.
 
 ## Publishing with GitHub Pages
 

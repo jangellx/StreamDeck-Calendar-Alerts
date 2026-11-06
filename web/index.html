@@ -29,7 +29,7 @@
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <style>
 /* The plugin's look: system type, white cards on pale gray, and the red of its icon. */
-:root{--bg:#f5f5f7;--card:#fff;--text:#1d1d1f;--muted:#6e6e73;--line:#e2e2e7;--link:#0a7cff;--red:#ef4a3c;--red-text:#fff;--deck:#141416;--deck-edge:#2a2a2d}
+:root{--light-blue:#66b3ff;--blue:#1a59d9;--yellow:#ccb80d;--orange:#f2801a;--stage-red:#e62626;--bg:#f5f5f7;--card:#fff;--text:#1d1d1f;--muted:#6e6e73;--line:#e2e2e7;--link:#0a7cff;--red:#ef4a3c;--red-text:#fff;--deck:#141416;--deck-edge:#2a2a2d}
 @media (prefers-color-scheme:dark){:root{--bg:#000;--card:#1c1c1e;--text:#f5f5f7;--muted:#98989f;--line:#2c2c2e;--link:#3d9bff;--deck:#1c1c1e;--deck-edge:#3a3a3c}}
 *{box-sizing:border-box}
 html{scroll-behavior:smooth}
@@ -65,12 +65,9 @@ section{padding:64px 0 0}
 .housing .key.main{width:clamp(150px,30vw,200px);box-shadow:0 0 0 2px rgba(255,255,255,.08),0 6px 18px rgba(0,0,0,.4)}
 .housing .key.dim{align-self:center}   /* blank keys either side, as on a real deck */
 .housing .key.main img{transition:opacity .2s}
-.housing .key.flash img{animation:flash 1s steps(1) infinite}
-@keyframes flash{50%{opacity:.15}}
-@media (prefers-reduced-motion:reduce){.housing .key.flash img{animation:none}}
 @media (max-width:520px){.housing .key.dim{display:none}}   /* just the one key on a phone */
 .stages{display:flex;flex-wrap:wrap;justify-content:center;gap:6px;margin:22px 0 0;padding:0;list-style:none}
-.stages button{font:inherit;font-size:14px;font-weight:600;color:var(--muted);background:var(--card);border:1px solid var(--line);border-radius:999px;padding:5px 12px;cursor:pointer;display:inline-flex;align-items:center;gap:7px}
+.stages button{font:inherit;font-size:14px;font-weight:600;color:var(--muted);background:var(--card);border:1px solid var(--line);border-radius:999px;padding:5px 0;width:88px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:7px}   /* all one width */
 .stages button i{width:9px;height:9px;border-radius:50%;background:var(--c);box-shadow:inset 0 0 0 1px rgba(0,0,0,.12)}
 .stages button[aria-pressed="true"]{color:var(--text);border-color:var(--text)}
 .demo figcaption{font-size:15px;color:var(--muted);margin-top:12px;min-height:1.6em}
@@ -79,7 +76,13 @@ section{padding:64px 0 0}
 .card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:22px 24px}
 .grid{display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(280px,1fr))}
 .card p{color:var(--muted);margin:0;font-size:16px}
-.card h3::before{content:"";display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--red);margin-right:9px;vertical-align:2px}
+.card h3::before{content:"";display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--dot,var(--red));margin-right:9px;vertical-align:2px}
+/* The bullets run through the countdown's colors, from light blue to red. */
+.card:nth-child(5n+1){--dot:var(--light-blue)}
+.card:nth-child(5n+2){--dot:var(--blue)}
+.card:nth-child(5n+3){--dot:var(--yellow)}
+.card:nth-child(5n+4){--dot:var(--orange)}
+.card:nth-child(5n+5){--dot:var(--stage-red)}
 
 /* The countdown, key by key */
 /* Seven across, or rows of four or three with the last row centered. */
@@ -89,8 +92,6 @@ section{padding:64px 0 0}
 .countdown li{flex:0 0 calc((100% - (var(--n) - 1) * 14px) / var(--n) - .5px);text-align:center;font-size:14px;color:var(--muted);line-height:1.35}
 .countdown img{border-radius:14%;margin:0 auto 10px;width:100%;max-width:120px;box-shadow:0 6px 16px rgba(0,0,0,.18)}
 .countdown strong{display:block;color:var(--text);font-size:15px}
-.countdown li.now img{animation:flash 1s steps(1) infinite}
-@media (prefers-reduced-motion:reduce){.countdown li.now img{animation:none}}
 
 /* Pressing the key */
 .split{display:grid;gap:32px;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));align-items:center}
@@ -131,6 +132,7 @@ td:first-child{color:var(--text)}
 .credits{display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(320px,1fr))}
 @media (max-width:400px){.credits{grid-template-columns:1fr}}
 .credits .card p{font-size:16px}
+.soon{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:2px 8px;margin-left:8px;vertical-align:2px;white-space:nowrap}
 
 footer{text-align:center;color:var(--muted);font-size:14px;margin-top:72px;padding-top:28px;border-top:1px solid var(--line)}
 footer p{margin:0 0 8px}
@@ -154,7 +156,7 @@ footer nav a{margin:0 8px;white-space:nowrap;display:inline-block}
 <figure class="demo" id="demo">
 <div class="housing" aria-hidden="true">
 <div class="key dim"></div>
-<div class="key main" id="demo-key"><img id="demo-img" src="images/key-12m.png" width="144" height="144" alt=""></div>
+<div class="key main"><img id="demo-img" src="images/key-12m.png" width="144" height="144" alt=""></div>
 <div class="key dim"></div>
 </div>
 <ul class="stages" id="stages" aria-label="Show the key at each stage of the countdown"></ul>
@@ -172,7 +174,7 @@ footer nav a{margin:0 8px;white-space:nowrap;display:inline-block}
 <li><img src="images/key-12m.png" width="144" height="144" alt="A key reading 1:1 with Sam, 12m, on yellow."><strong>11–15 min</strong>Yellow</li>
 <li><img src="images/key-8m.png" width="144" height="144" alt="A key reading Customer call, 8m, on orange."><strong>6–10 min</strong>Orange</li>
 <li><img src="images/key-3m.png" width="144" height="144" alt="A key reading Dentist, 3m, on red."><strong>1–5 min</strong>Red</li>
-<li class="now"><img src="images/key-now.png" width="144" height="144" alt="A key reading Dentist, NOW, on red."><strong>Final minute</strong>Flashing NOW</li>
+<li class="now"><img id="countdown-now" src="images/key-now.png" width="144" height="144" alt="A key reading Dentist, NOW, on red."><strong>Final minute</strong>Flashing NOW</li>
 </ol>
 </section>
 
@@ -219,7 +221,7 @@ footer nav a{margin:0 8px;white-space:nowrap;display:inline-block}
 <h2>When the day is done</h2>
 <p class="sub">After your last event, the key shows something nicer than a blank square. Pick the one you like in the key's settings.</p>
 <div class="choices">
-<figure><img src="images/no-events-moon.png" width="144" height="144" alt="A photograph of the moon in tonight's phase."><figcaption>Tonight's moon<span>The default</span></figcaption></figure>
+<figure><img class="tonights-moon" src="images/no-events-moon.png" width="144" height="144" alt="A photograph of the moon in tonight's phase."><figcaption>Tonight's moon<span>The default</span></figcaption></figure>
 <figure><img src="images/no-events-smile.png" width="144" height="144" alt="A smiling calendar page, light."><figcaption>Smiling calendar<span>Light</span></figcaption></figure>
 <figure><img src="images/no-events-smile-dark.png" width="144" height="144" alt="A smiling calendar page, dark."><figcaption>Smiling calendar<span>Dark</span></figcaption></figure>
 <figure><img src="images/no-events-loop.png" width="144" height="144" alt="A clock face with an infinity sign, light."><figcaption>Infinity clock<span>Light</span></figcaption></figure>
@@ -259,7 +261,7 @@ footer nav a{margin:0 8px;white-space:nowrap;display:inline-block}
 <div class="card"><h3>The idea and the colors</h3><p>The idea, and the colors for each stage of the countdown, come from TJ Luoma's <a href="https://github.com/tjluoma/icalbuddy-km-and-stream-deck">icalbuddy-km-and-stream-deck</a>, which uses icalBuddy and Keyboard Maestro to show the time until your next meeting on a Stream Deck key.</p></div>
 <div class="card"><h3>Shortcuts, before the plugin</h3><p>Before this plugin there was a Shortcuts version, an idea that came from ringmaster's <a href="https://forum.obsidian.md/t/ical-daily-schedule-via-ios-osx-shortcut/30686">iCal Daily Schedule via iOS/OSX Shortcut</a> on the Obsidian forum.</p></div>
 <div class="card"><h3>The moon</h3><p>The moon-phase images are courtesy of NASA's Scientific Visualization Studio, from its <a href="https://svs.gsfc.nasa.gov/gallery/moonphase/">Dial-A-Moon</a> gallery, made with data from NASA's Lunar Reconnaissance Orbiter.</p></div>
-<div class="card"><h3>Perpetual</h3><p>The plugin icon, the smiling calendar and the infinity clock are from my app Perpetual, and the moon phase is worked out the way Perpetual does it. The other images are drawn in code.</p></div>
+<div class="card"><h3>Perpetual<span class="soon">Coming soon</span></h3><p>The plugin icon, the smiling calendar and the infinity clock are from Perpetual, my calendar app that's coming soon, and the moon phase is worked out the way Perpetual does it. The other images are drawn in code.</p></div>
 <div class="card"><h3>Opening events</h3><p>Opening an event in Apple Calendar uses the link that <a href="https://github.com/leits/MeetingBar">MeetingBar</a> uses. The other apps' links come from their own documentation: <a href="https://flexibits.com/fantastical/help/integration">Fantastical</a>, <a href="https://www.busymac.com/docs/busycal/70621-url-handler">BusyCal</a> and <a href="https://cronhq.notion.site/Cron-API-c0ad725e3b654c64a6d3fa7ae71fa8b3">Notion Calendar</a>.</p></div>
 </div>
 </section>
@@ -279,28 +281,57 @@ footer nav a{margin:0 8px;white-space:nowrap;display:inline-block}
 
 </main>
 <script>
+// Tonight's moon, worked out as the plugin does (MoonPhase.swift, from Perpetual): the angle the
+// moon has drawn ahead of the sun, at local noon today, picks one of thirty NASA images 12° apart.
+function moonImage() {
+	const sine = degrees => Math.sin( degrees * Math.PI / 180 );
+	const noon = new Date(); noon.setHours( 12, 0, 0, 0 );
+	const days = noon.getTime() / 86400000 + 2440587.5 - 2451545;
+	const t = days / 36525;
+	const moon = 218.32 + 481267.881 * t + 6.29 * sine( 135.0 + 477198.87 * t ) - 1.27 * sine( 259.3 - 413335.36 * t )
+		+ 0.66 * sine( 235.7 + 890534.22 * t ) + 0.21 * sine( 269.9 + 954397.74 * t )
+		- 0.19 * sine( 357.5 + 35999.05 * t ) - 0.11 * sine( 186.5 + 966404.03 * t );
+	const anomaly = 357.5291 + 0.98560028 * days;
+	const sun = anomaly + 1.9148 * sine( anomaly ) + 0.02 * sine( 2 * anomaly ) + 180 + 102.9372;
+	const angle = ( ( moon - sun ) % 360 + 360 ) % 360;
+	return "images/moon/moon-" + String( Math.round( angle / 12 ) % 30 ).padStart( 2, "0" ) + ".png";
+}
+const tonightsMoon = moonImage();
+document.querySelectorAll( ".tonights-moon" ).forEach( image => { image.src = tonightsMoon; } );
+
+const still = window.matchMedia( "(prefers-reduced-motion: reduce)" ).matches;
+
+// NOW flashes as it does on the key: once a second it swaps between red text with no banner
+// and black text on a red banner.
+function flash( image ) {
+	let on = false;
+	image.src = "images/key-now-off.png";
+	if( still ) return null;
+	return setInterval( () => { on = !on; image.src = on ? "images/key-now.png" : "images/key-now-off.png"; }, 1000 );
+}
+flash( document.getElementById( "countdown-now" ) );
+
 // The hero's key: steps through a meeting's countdown on its own, or shows the stage you pick.
 ( function() {
 	const stages = [
-		{ image: "key-90m",        color: "#3a3a3c", label: "1h 30m", caption: "An hour or more away: hours and minutes, no color." },
-		{ image: "key-45m",        color: "#7cc3ff", label: "45m",    caption: "31–59 minutes to go: light blue." },
-		{ image: "key-25m",        color: "#1e6fe0", label: "25m",    caption: "16–30 minutes to go: blue." },
-		{ image: "key-12m",        color: "#d9c300", label: "12m",    caption: "11–15 minutes to go: yellow." },
-		{ image: "key-8m",         color: "#f7931e", label: "8m",     caption: "6–10 minutes to go: orange." },
-		{ image: "key-3m",         color: "#ef3e32", label: "3m",     caption: "1–5 minutes to go: red." },
-		{ image: "key-now",        color: "#ef3e32", label: "NOW",    caption: "The final minute: a flashing NOW." },
-		{ image: "key-all-day",    color: "#636366", label: "All day", caption: "Meetings over: today's all-day event, if there is one." },
-		{ image: "no-events-moon", color: "#9a9a9a", label: "Done",   caption: "No more events today: tonight's moon." }
+		{ src: "images/key-90m.png",     color: "#3a3a3c", label: "1h 30m",  caption: "An hour or more away: hours and minutes, no color." },
+		{ src: "images/key-45m.png",     color: "#66b3ff", label: "45m",     caption: "31–59 minutes to go: light blue." },
+		{ src: "images/key-25m.png",     color: "#1a59d9", label: "25m",     caption: "16–30 minutes to go: blue." },
+		{ src: "images/key-12m.png",     color: "#ccb80d", label: "12m",     caption: "11–15 minutes to go: yellow." },
+		{ src: "images/key-8m.png",      color: "#f2801a", label: "8m",      caption: "6–10 minutes to go: orange." },
+		{ src: "images/key-3m.png",      color: "#e62626", label: "3m",      caption: "1–5 minutes to go: red." },
+		{ src: "images/key-now.png",     color: "#e62626", label: "NOW",     caption: "The final minute: a flashing NOW.", flash: true, hold: 2 },
+		{ src: "images/key-all-day.png", color: "#636366", label: "All day", caption: "Meetings over: today's all-day event, if there is one." },
+		{ src: tonightsMoon,             color: "#9a9a9a", label: "Done",    caption: "No more events today: tonight's moon, in tonight's actual phase." }
 	];
-	const key = document.getElementById( "demo-key" );
 	const img = document.getElementById( "demo-img" );
 	const caption = document.getElementById( "demo-caption" );
 	const list = document.getElementById( "stages" );
-	const still = window.matchMedia( "(prefers-reduced-motion: reduce)" ).matches;
-	let index = 3, timer = null;
+	let index = 0, timer = null, flasher = null;
 
 	// Load every picture up front, so a change never shows an empty key.
-	stages.forEach( stage => { new Image().src = "images/" + stage.image + ".png"; } );
+	stages.forEach( stage => { new Image().src = stage.src; } );
+	new Image().src = "images/key-now-off.png";
 
 	const buttons = stages.map( ( stage, i ) => {
 		const item = document.createElement( "li" );
@@ -308,25 +339,28 @@ footer nav a{margin:0 8px;white-space:nowrap;display:inline-block}
 		button.type = "button";
 		button.innerHTML = "<i></i>" + stage.label;
 		button.style.setProperty( "--c", stage.color );
-		button.addEventListener( "click", () => { stop(); show( i ); } );
+		button.addEventListener( "click", () => { clearTimeout( timer ); timer = null; show( i, false ); } );
 		item.appendChild( button );
 		list.appendChild( item );
 		return button;
 	} );
 
-	function show( i ) {
+	function show( i, advance ) {
 		index = i;
 		const stage = stages[i];
-		img.src = "images/" + stage.image + ".png";
-		key.classList.toggle( "flash", stage.image === "key-now" );
+		clearInterval( flasher );
+		flasher = null;
+		if( stage.flash )
+			flasher = flash( img );
+		else
+			img.src = stage.src;
 		caption.textContent = stage.caption;
 		buttons.forEach( ( button, n ) => button.setAttribute( "aria-pressed", n === i ? "true" : "false" ) );
+		if( advance )
+			timer = setTimeout( () => show( ( index + 1 ) % stages.length, true ), 2200 * ( stage.hold || 1 ) );
 	}
-	function stop() { clearInterval( timer ); timer = null; }
 
-	show( 0 );
-	if( !still )
-		timer = setInterval( () => show( ( index + 1 ) % stages.length ), 2200 );
+	show( 0, !still );
 } )();
 </script>
 </body>
