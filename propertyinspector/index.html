@@ -606,7 +606,9 @@
 
         // One "open" menu, for events or for reminders. Each saves its own
         // settings: a bundle ID, a "web:" id or "url" in appKey, and the URL in urlKey.
-        function OpenPicker(ids, appKey, urlKey, defaultApp, describe) {
+        // `leaveOut` is an app this menu doesn't offer (Reminders, in the events menu),
+        // unless it's already the saved choice.
+        function OpenPicker(ids, appKey, urlKey, defaultApp, describe, leaveOut) {
             var picker = this;
             var choosingOther = false;   // the user picked "Another app…" and hasn't chosen one yet
             var select = document.getElementById(ids.select);
@@ -627,8 +629,9 @@
 
             picker.render = function() {
                 select.innerHTML = '';
-                var calendars = apps.filter(function(a) { return a.group === 'calendar'; });
-                var others = apps.filter(function(a) { return a.group === 'other'; });
+                var offered = apps.filter(function(a) { return a.id !== leaveOut || a.id === settings[appKey]; });
+                var calendars = offered.filter(function(a) { return a.group === 'calendar'; });
+                var others = offered.filter(function(a) { return a.group === 'other'; });
                 if (!apps.length) {
                     var fallback = [{ id: defaultApp, name: defaultApp === 'com.apple.reminders' ? 'Reminders' : 'Calendar' }];
                     if (defaultApp === 'com.apple.reminders') others = fallback; else calendars = fallback;
@@ -706,7 +709,8 @@
                 if (app && app.opens === 'event') return 'Opens the event shown on the key.';
                 if (app && app.opens === 'day') return 'Opens the day of the event shown on the key.';
                 return '';
-            });
+            },
+            'com.apple.reminders');
         var reminderPicker = new OpenPicker(
             { select: 'openReminderApp', other: 'otherReminderApp', url: 'openReminderURL', hint: 'openReminderHint' },
             'openReminderApp', 'openReminderURL', 'com.apple.reminders',
