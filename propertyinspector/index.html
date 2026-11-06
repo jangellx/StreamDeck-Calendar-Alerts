@@ -111,8 +111,9 @@
         .link { color: #9cf; cursor: pointer; text-decoration: underline; }
         .hidden { display: none; }
         .sub-label { color: #bbb; margin: 8px 0 4px; }
-        .press-swap { margin-top: 4px; }
-        .press-hint { color: #999; font-size: 8pt; line-height: 1.4; padding-left: 20px; }
+        .press-row { display: flex; align-items: center; gap: 8px; margin-top: 6px; white-space: nowrap; }
+        .press-row select { flex: 1; width: auto; min-width: 0; }
+        .press-hint { color: #999; font-size: 8pt; line-height: 1.4; margin-top: 4px; }
         #eventOpenLabel { margin-top: 0; }
         #reminderOpen .sub-label { margin-top: 12px; }
         .summary {
@@ -162,7 +163,12 @@
     <select id="otherApp" class="hidden"></select>
     <input id="openURL" type="text" class="hidden" placeholder="e.g. calendar.google.com" spellcheck="false">
     <div class="hint" id="openHint"></div>
-    <label class="calendar-row press-swap"><input type="checkbox" id="swapEventPress"> Swap: tap joins the meeting</label>
+    <label class="press-row">Tapping the key
+        <select id="swapEventPress">
+            <option value="open">Opens the event</option>
+            <option value="swap">Joins the meeting</option>
+        </select>
+    </label>
     <div class="press-hint" id="eventPressHint"></div>
     <div id="reminderOpen" class="hidden">
         <div class="sub-label">Reminders</div>
@@ -170,7 +176,12 @@
         <select id="otherReminderApp" class="hidden"></select>
         <input id="openReminderURL" type="text" class="hidden" placeholder="e.g. todoist.com" spellcheck="false">
         <div class="hint" id="openReminderHint"></div>
-        <label class="calendar-row press-swap"><input type="checkbox" id="swapReminderPress"> Swap: tap marks it done</label>
+        <label class="press-row">Tapping the key
+            <select id="swapReminderPress">
+                <option value="open">Opens the reminder</option>
+                <option value="swap">Marks it done</option>
+            </select>
+        </label>
         <div class="press-hint" id="reminderPressHint"></div>
     </div>
 
@@ -744,25 +755,26 @@
 
         function renderPress() {
             var swapE = settings.swapEventPress, swapR = settings.swapReminderPress;
-            document.getElementById('swapEventPress').checked = swapE;
-            document.getElementById('swapReminderPress').checked = swapR;
-            var join = 'join its Zoom, Google Meet, Teams, Webex or other video meeting';
+            document.getElementById('swapEventPress').value = swapE ? 'swap' : 'open';
+            document.getElementById('swapReminderPress').value = swapR ? 'swap' : 'open';
+            // What the other press does.
+            var other = SECOND.charAt(0).toUpperCase() + SECOND.slice(1);
             document.getElementById('eventPressHint').textContent = swapE
-                ? 'Tap to ' + join + '; ' + SECOND + ' to open the app. An event with no meeting link just opens the app.'
-                : 'Tap to open the app; ' + SECOND + ' to ' + join + ', if the event has a link.';
+                ? other + ' to open the event. An event with no meeting link opens with a tap too.'
+                : other + ' to join its Zoom, Google Meet, Teams, Webex or other video meeting, if it has a link.';
             document.getElementById('reminderPressHint').textContent = (swapR
-                ? 'Tap to mark the reminder done; ' + SECOND + ' to open the app.'
-                : 'Tap to open the app; ' + SECOND + ' to mark the reminder done.') +
+                ? other + ' to open the reminder.'
+                : other + ' to mark the reminder done.') +
                 ' Do it again while the key shows Done to undo.';
         }
 
         document.getElementById('swapEventPress').addEventListener('change', function(e) {
-            settings.swapEventPress = e.target.checked;
+            settings.swapEventPress = e.target.value === 'swap';
             renderPress();
             save();
         });
         document.getElementById('swapReminderPress').addEventListener('change', function(e) {
-            settings.swapReminderPress = e.target.checked;
+            settings.swapReminderPress = e.target.value === 'swap';
             renderPress();
             save();
         });
