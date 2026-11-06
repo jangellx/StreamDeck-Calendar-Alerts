@@ -11,3 +11,5 @@ The Download buttons point at `releases/latest/download/com.joeangell.calendar-a
 To try the page locally, serve this folder (for example `python3 -m http.server` in `web/`) and open `http://localhost:8000/`.
 
 The custom domain is set in **Settings → Pages → Custom domain** (with a CNAME record for `sdcalendaralerts.tmproductions.com` pointing to `jangellx.github.io`), so no `CNAME` file is needed here.
+
+If a deploy times out on GitHub's side ("Timeout reached, aborting!"), re-running it for the same commit gets cancelled at once, because Pages names each deployment after its commit. Push a new commit that touches `web/` instead.
