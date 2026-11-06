@@ -11,6 +11,12 @@ final class CalendarServiceRunner {
     private var accessPollTimer: Timer?
     private var storeObserver: NSObjectProtocol?
     private var parentWatch: DispatchSourceProcess?
+    private var commandObservers: [NSObjectProtocol] = []
+    private var calendarAuthorized = false
+    private var askingForReminders = false
+    // Today's reminders as last fetched (fetching them is asynchronous), written
+    // into the events file alongside the events.
+    private var reminderRecords: [[String: Any]] = []
 
     // Exit when the plugin process that launched us exits, so a helper never
     // outlives Stream Deck or keeps running old code after a deploy.
@@ -30,6 +36,7 @@ final class CalendarServiceRunner {
 
     func start() {
         removeLegacyFiles()
+        listenForCommands()
 
         let status = EKEventStore.authorizationStatus(for: .event)
         NSLog("[CalendarHelper] EKAuthorizationStatus raw=\(status.rawValue)")
@@ -59,7 +66,8 @@ final class CalendarServiceRunner {
     // so, then keep checking: access can be granted later in System Settings.
     private func handleAccessDenied() {
         NSLog("[CalendarHelper] Calendar access denied/restricted — waiting for it to be granted")
-        CalendarManager.writeJSON(["authorized": false], to: CalendarManager.statusURL)
+        calendarAuthorized = false
+        writeStatus()
         CalendarManager.writeJSON([], to: CalendarManager.eventsURL)
         CalendarManager.writeJSON([], to: CalendarManager.calendarsURL)
 
@@ -76,8 +84,10 @@ final class CalendarServiceRunner {
 
     private func beginWritingEvents() {
         NSLog("[CalendarHelper] Starting event writer")
-        CalendarManager.writeJSON(["authorized": true], to: CalendarManager.statusURL)
+        calendarAuthorized = true
+        writeStatus()
         writeSharedFiles()
+        askForRemindersIfWanted()
 
         // Rewrite as soon as a calendar changes, with a periodic refresh as a backstop.
         if let storeObserver { NotificationCenter.default.removeObserver(storeObserver) }
@@ -90,12 +100,133 @@ final class CalendarServiceRunner {
         refreshTimer?.invalidate()
         refreshTimer = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { [weak self] _ in
             self?.writeSharedFiles()
+            self?.askForRemindersIfWanted()
         }
+    }
+
+    private func writeStatus() {
+        let reminders: RemindersAccess
+        switch EKEventStore.authorizationStatus(for: .reminder) {
+        case .fullAccess:    reminders = .granted
+        case .notDetermined: reminders = .notDetermined
+        default:             reminders = .denied
+        }
+        CalendarManager.writeJSON(["authorized": calendarAuthorized, "reminders": reminders.rawValue],
+                                  to: CalendarManager.statusURL)
     }
 
     private func writeSharedFiles() {
         writeEventsFile()
         writeCalendarsFile()
+        fetchReminders()
+    }
+
+    // MARK: - Reminders
+
+    // Commands from the plugin: a key started showing reminders, or a reminder
+    // was marked done (or not done) from a key.
+    private func listenForCommands() {
+        let center = DistributedNotificationCenter.default()
+        commandObservers.append(center.addObserver(
+            forName: CalendarManager.remindersWantedNotification, object: nil, queue: .main
+        ) { [weak self] _ in
+            self?.askForRemindersIfWanted()
+        })
+        commandObservers.append(center.addObserver(
+            forName: CalendarManager.setReminderCompletedNotification, object: nil, queue: .main
+        ) { [weak self] note in
+            guard let id = note.userInfo?["identifier"] as? String,
+                  let completed = note.userInfo?["completed"] as? Bool else { return }
+            self?.setReminder(id, completed: completed)
+        })
+    }
+
+    // Asks for reminders access the first time a key wants reminders. Calendar
+    // access comes first, so the two prompts never appear together.
+    private func askForRemindersIfWanted() {
+        guard calendarAuthorized, !askingForReminders,
+              EKEventStore.authorizationStatus(for: .reminder) == .notDetermined,
+              FileManager.default.fileExists(atPath: CalendarManager.remindersWantedURL.path) else { return }
+        askingForReminders = true
+        NSApp.setActivationPolicy(.regular)
+        NSApp.activate(ignoringOtherApps: true)
+        store.requestFullAccessToReminders { [weak self] granted, _ in
+            DispatchQueue.main.async {
+                NSApp.setActivationPolicy(.accessory)
+                guard let self else { return }
+                self.askingForReminders = false
+                NSLog("[CalendarHelper] Reminders access granted=\(granted)")
+                self.writeStatus()
+                self.writeSharedFiles()
+            }
+        }
+    }
+
+    // Reminders due today that aren't done, read when reminders access was given.
+    private func fetchReminders() {
+        writeStatus()
+        guard EKEventStore.authorizationStatus(for: .reminder) == .fullAccess else {
+            if !reminderRecords.isEmpty {
+                reminderRecords = []
+                writeEventsFile()
+            }
+            CalendarManager.writeJSON([], to: CalendarManager.reminderListsURL)
+            return
+        }
+        CalendarManager.writeJSON(Self.listRecords(store.calendars(for: .reminder)),
+                                  to: CalendarManager.reminderListsURL)
+
+        let calendar = Calendar.current
+        let startOfDay = calendar.startOfDay(for: Date())
+        guard let endOfDay = calendar.date(byAdding: .day, value: 1, to: startOfDay) else { return }
+        let predicate = store.predicateForIncompleteReminders(withDueDateStarting: startOfDay,
+                                                              ending: endOfDay, calendars: nil)
+        store.fetchReminders(matching: predicate) { [weak self] reminders in
+            let records = (reminders ?? []).compactMap(Self.record(for:))
+            DispatchQueue.main.async {
+                guard let self else { return }
+                self.reminderRecords = records
+                self.writeEventsFile()
+            }
+        }
+    }
+
+    // A reminder in the events file's format. One with only a date is treated as
+    // all-day: it covers the whole of its day.
+    private static func record(for reminder: EKReminder) -> [String: Any]? {
+        guard let components = reminder.dueDateComponents,
+              let due = Calendar.current.date(from: components) else { return nil }
+        let hasTime = components.hour != nil
+        let start = hasTime ? due : Calendar.current.startOfDay(for: due)
+        let end = hasTime ? due : (Calendar.current.date(byAdding: .day, value: 1, to: start) ?? due)
+        return [
+            "title": reminder.title ?? "",
+            "startDate": start.timeIntervalSince1970,
+            "endDate": end.timeIntervalSince1970,
+            "allDay": !hasTime,
+            "reminder": true,
+            "identifier": reminder.calendarItemIdentifier,
+            "calendarIdentifier": reminder.calendar?.calendarIdentifier ?? "",
+            "calendarItemIdentifier": reminder.calendarItemIdentifier,
+            "externalIdentifier": reminder.calendarItemExternalIdentifier ?? "",
+            "calendarTitle": reminder.calendar?.title ?? "",
+        ]
+    }
+
+    private func setReminder(_ identifier: String, completed: Bool) {
+        guard EKEventStore.authorizationStatus(for: .reminder) == .fullAccess,
+              let reminder = store.calendarItem(withIdentifier: identifier) as? EKReminder else {
+            NSLog("[CalendarHelper] No reminder \(identifier) to mark completed=\(completed)")
+            return
+        }
+        reminder.isCompleted = completed
+        do {
+            try store.save(reminder, commit: true)
+            NSLog("[CalendarHelper] Marked a reminder completed=\(completed)")
+        } catch {
+            NSLog("[CalendarHelper] Couldn't save a reminder: \(error)")
+        }
+        fetchReminders()
     }
 
     private func writeEventsFile() {
@@ -123,7 +254,7 @@ final class CalendarServiceRunner {
                     "accountEmail": Self.accountEmail(for: event.calendar) ?? ""
                 ]
             }
-        CalendarManager.writeJSON(events, to: CalendarManager.eventsURL)
+        CalendarManager.writeJSON(events + reminderRecords, to: CalendarManager.eventsURL)
     }
 
     // The email address of the account a calendar belongs to, when macOS exposes
@@ -152,7 +283,11 @@ final class CalendarServiceRunner {
     }
 
     private func writeCalendarsFile() {
-        let calendars = store.calendars(for: .event).map { cal -> [String: Any] in
+        CalendarManager.writeJSON(Self.listRecords(store.calendars(for: .event)), to: CalendarManager.calendarsURL)
+    }
+
+    private static func listRecords(_ calendars: [EKCalendar]) -> [[String: Any]] {
+        calendars.map { cal -> [String: Any] in
             var hex = "#888888"
             if let rgb = cal.color.usingColorSpace(.sRGB) {
                 let r = Int((rgb.redComponent * 255).rounded())
@@ -162,7 +297,6 @@ final class CalendarServiceRunner {
             }
             return ["id": cal.calendarIdentifier, "title": cal.title, "color": hex]
         }
-        CalendarManager.writeJSON(calendars, to: CalendarManager.calendarsURL)
     }
 
     // Earlier versions wrote world-readable copies of the shared files to /tmp.

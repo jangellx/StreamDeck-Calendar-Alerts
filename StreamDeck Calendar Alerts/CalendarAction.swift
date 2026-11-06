@@ -24,8 +24,30 @@ final class CalendarAction {
     private var playAlerts = true
     private var alertMinutes: Set<Int> = CalendarAction.defaultAlertMinutes
     private var alertEveryMinute = false                        // also at 4, 3, 2 and 1 minutes
+    private var showEvents = true                               // calendar events
+    private var showReminders = false                           // reminders due today
+    private var selectedReminderListIDs: Set<String> = []       // empty = all lists
+    private var showTimed = true                                // events and reminders at a set time
 
     static let defaultAlertMinutes: Set<Int> = [60, 30, 15, 5]
+
+    // Pressing the key. A tap opens the app. When a reminder is on the key, holding
+    // it or tapping twice marks the reminder done, and doing that again while
+    // "Done" shows marks it not done. Stream Deck only reports the key going down
+    // and up, so holds and double taps are timed here.
+    static let holdTime: TimeInterval = 0.5
+    static let doubleTapTime: TimeInterval = 0.3
+    static let undoTime: TimeInterval = 5
+    private var holdTimer: Timer?
+    private var tapTimer: Timer?                                // a tap waiting to see if a second one follows
+    private var holdHandled = false
+
+    // A reminder marked done from this key: shown as done for a few seconds (when
+    // a second hold or double tap undoes it), and kept off the key afterwards
+    // until the helper's next file no longer lists it.
+    private var doneReminder: SharedEvent?
+    private var doneTimer: Timer?
+    private var hiddenReminderIDs: [String: Date] = [:]
 
     init(context: String, plugin: StreamDeckPlugin) {
         self.context = context
@@ -44,6 +66,11 @@ final class CalendarAction {
         playAlerts    = settings["playAlerts"] as? Bool ?? true
         alertMinutes  = (settings["alertMinutes"] as? [Int]).map(Set.init) ?? Self.defaultAlertMinutes
         alertEveryMinute = settings["alertEveryMinute"] as? Bool ?? false
+        showEvents    = settings["showEvents"] as? Bool ?? true
+        showReminders = settings["showReminders"] as? Bool ?? false
+        selectedReminderListIDs = Set(settings["selectedReminderLists"] as? [String] ?? [])
+        showTimed     = settings["showTimed"] as? Bool ?? true
+        if showReminders { CalendarManager.requestReminders() }
         if minuteTimer != nil { update() }
     }
 
@@ -79,6 +106,9 @@ final class CalendarAction {
         minuteTimer?.invalidate()
         minuteTimer = nil
         stopFlashing()
+        holdTimer?.invalidate()
+        tapTimer?.invalidate()
+        doneTimer?.invalidate()
     }
 
     // Fire exactly at the next minute boundary, then every 60 s thereafter,
@@ -101,14 +131,33 @@ final class CalendarAction {
             return
         }
 
-        let today = CalendarManager.todaysEventsFromSharedFile(filteredTo: selectedCalendarIDs)
-        guard let event = today.next else {
+        // A reminder just marked done keeps the key until its moment to undo passes.
+        if let done = doneReminder {
+            stopFlashing()
+            currentEvent = done
+            sendImage(ButtonImageRenderer.shared.renderReminderDone(title: done.title))
+            return
+        }
+
+        // Reminders the helper still lists a minute after being marked done
+        // weren't saved; let them back.
+        hiddenReminderIDs = hiddenReminderIDs.filter { $0.value.timeIntervalSinceNow > -60 }
+        var filter = CalendarManager.Filter()
+        filter.events = showEvents
+        filter.reminders = showReminders && CalendarManager.remindersAccess() == .granted
+        filter.calendarIDs = selectedCalendarIDs
+        filter.reminderListIDs = selectedReminderListIDs
+        filter.hidden = Set(hiddenReminderIDs.keys)
+        let today = CalendarManager.today(filter)
+        guard let event = showTimed ? today.next : nil else {
             resetEventState()
             if let allDay = allDayEventToShow(today.allDay) {
                 // Pressing the key opens it, like a timed event.
                 currentEvent = allDay
+                let label = !allDay.isReminder ? "All day" : allDay.isAllDay ? "Today" : "Overdue"
                 sendImage(ButtonImageRenderer.shared.renderAllDay(title: allDay.title,
-                                                                  others: today.allDay.count - 1))
+                                                                  others: today.allDay.count - 1,
+                                                                  label: label, reminder: allDay.isReminder))
             } else {
                 sendImage(ButtonImageRenderer.shared.renderNoEvents(style: noEventsStyle, customImage: noEventsImage,
                                                                     customMessage: noEventsMessage))
@@ -175,7 +224,8 @@ final class CalendarAction {
         sendImage(ButtonImageRenderer.shared.renderEvent(
             title: event.title,
             minutesUntil: minutesUntil,
-            flashPhase: flashPhase
+            flashPhase: flashPhase,
+            reminder: event.isReminder
         ))
     }
 
@@ -190,5 +240,71 @@ final class CalendarAction {
     // Opens the chosen app, showing the event on the key where the app supports it.
     func openConfiguredApp() {
         AppLauncher.open(choice: openApp, url: openURL, event: currentEvent)
+    }
+
+    // MARK: - Pressing the key
+
+    // The reminder a hold or double tap acts on, if one is on the key.
+    private var reminderOnKey: SharedEvent? {
+        doneReminder ?? (currentEvent?.isReminder == true ? currentEvent : nil)
+    }
+
+    func keyDown() {
+        holdHandled = false
+        holdTimer?.invalidate()
+        guard reminderOnKey != nil else { return }
+        holdTimer = Timer.scheduledTimer(withTimeInterval: Self.holdTime, repeats: false) { [weak self] _ in
+            guard let self else { return }
+            self.holdHandled = true
+            self.tapTimer?.invalidate()
+            self.tapTimer = nil
+            self.toggleReminder()
+        }
+    }
+
+    func keyUp() {
+        holdTimer?.invalidate()
+        holdTimer = nil
+        if holdHandled { return }
+        // Nothing to mark done: open the app straight away.
+        guard reminderOnKey != nil else {
+            openConfiguredApp()
+            return
+        }
+        if tapTimer != nil {
+            // The second tap of a double tap.
+            tapTimer?.invalidate()
+            tapTimer = nil
+            toggleReminder()
+            return
+        }
+        tapTimer = Timer.scheduledTimer(withTimeInterval: Self.doubleTapTime, repeats: false) { [weak self] _ in
+            self?.tapTimer = nil
+            self?.openConfiguredApp()
+        }
+    }
+
+    // Marks the reminder on the key done, or, while "Done" shows, not done again.
+    private func toggleReminder() {
+        if let done = doneReminder {
+            CalendarManager.setReminder(done.calendarItemIdentifier, completed: false)
+            hiddenReminderIDs.removeValue(forKey: done.calendarItemIdentifier)
+            doneReminder = nil
+            doneTimer?.invalidate()
+            doneTimer = nil
+            update()
+            return
+        }
+        guard let reminder = reminderOnKey else { return }
+        CalendarManager.setReminder(reminder.calendarItemIdentifier, completed: true)
+        hiddenReminderIDs[reminder.calendarItemIdentifier] = Date()
+        doneReminder = reminder
+        update()
+        doneTimer = Timer.scheduledTimer(withTimeInterval: Self.undoTime, repeats: false) { [weak self] _ in
+            guard let self else { return }
+            self.doneReminder = nil
+            self.doneTimer = nil
+            self.update()
+        }
     }
 }

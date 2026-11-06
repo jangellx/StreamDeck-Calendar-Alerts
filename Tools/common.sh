@@ -93,6 +93,8 @@ build_plugin() {
     <string>NSApplication</string>
     <key>NSCalendarsFullAccessUsageDescription</key>
     <string>Calendar Alerts needs access to show your upcoming appointments on the StreamDeck.</string>
+    <key>NSRemindersFullAccessUsageDescription</key>
+    <string>Calendar Alerts shows the reminders due today on the Stream Deck keys you set to show them, and marks one done when you hold its key.</string>
 </dict>
 </plist>
 HPLIST

@@ -68,13 +68,20 @@ final class StreamDeckPlugin: NSObject {
             actions[context]?.stop()
             actions.removeValue(forKey: context)
         case "keyDown":
-            actions[context]?.openConfiguredApp()
+            actions[context]?.keyDown()
+        case "keyUp":
+            actions[context]?.keyUp()
         case "didReceiveSettings":
             let payload = json["payload"] as? [String: Any] ?? [:]
             let settings = payload["settings"] as? [String: Any] ?? [:]
             actions[context]?.applySettings(settings)
         case "sendToPlugin":
             let payload = json["payload"] as? [String: Any] ?? [:]
+            if payload["request"] as? String == "requestReminders" {
+                // The panel's Reminders box was just checked: ask for access now,
+                // before the setting even reaches the key.
+                CalendarManager.requestReminders()
+            }
             if payload["request"] as? String == "getPanelData" {
                 // Answered here rather than by the action, so the PI gets data even
                 // if willAppear hasn't arrived for this context yet.
@@ -85,15 +92,19 @@ final class StreamDeckPlugin: NSObject {
         }
     }
 
-    // Everything the settings panel needs: calendars to filter by, apps the key
-    // can open, and whether calendar access was refused.
+    // Everything the settings panel needs: calendars and reminder lists to filter
+    // by, apps the key can open, and whether calendar or reminders access was refused.
     private func sendPanelData(context: String) {
         // Alphabetical, the way Finder sorts names (case-insensitive, "2" before "10").
-        let calendars = CalendarManager.readCalendarsFromSharedFile()
-            .sorted { $0.title.localizedStandardCompare($1.title) == .orderedAscending }
-            .map { ["id": $0.id, "title": $0.title, "color": $0.hexColor] }
+        func listed(_ calendars: [CalendarInfo]) -> [[String: String]] {
+            calendars
+                .sorted { $0.title.localizedStandardCompare($1.title) == .orderedAscending }
+                .map { ["id": $0.id, "title": $0.title, "color": $0.hexColor] }
+        }
         sendToPropertyInspector(context: context, payload: [
-            "calendars": calendars,
+            "calendars": listed(CalendarManager.readCalendarsFromSharedFile()),
+            "reminderLists": listed(CalendarManager.readReminderListsFromSharedFile()),
+            "remindersAccess": CalendarManager.remindersAccess().rawValue,
             "apps": AppLauncher.suggestedApps(),
             "webCalendars": AppLauncher.webCalendarChoices(),
             "allApps": AppLauncher.allApps(),

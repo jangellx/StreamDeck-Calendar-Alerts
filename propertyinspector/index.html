@@ -113,12 +113,22 @@
     </style>
 </head>
 <body>
-    <div class="section-label">Show events from</div>
-    <div id="list"><div class="loading">Loading calendars…</div></div>
-    <div class="hint" id="hint"></div>
+    <div class="section-label">Show</div>
+    <label class="calendar-row"><input type="checkbox" id="showEvents"> Calendar events</label>
+    <div id="eventOptions" class="indented">
+        <div id="list"><div class="loading">Loading calendars…</div></div>
+        <div class="hint" id="hint"></div>
+    </div>
+    <label class="calendar-row"><input type="checkbox" id="showReminders"> Reminders due today</label>
+    <div id="reminderOptions" class="indented hidden">
+        <div id="reminderList"></div>
+        <div class="hint" id="reminderHint"></div>
+        <div class="hint">Hold the key, or tap it twice, to mark the reminder on it done.</div>
+    </div>
 
-    <div class="section-label">All-day events</div>
-    <label class="calendar-row"><input type="checkbox" id="showAllDay"> Show when nothing else is left today</label>
+    <div class="section-label">Timed and all-day</div>
+    <label class="calendar-row"><input type="checkbox" id="showTimed"> At a set time, counting down</label>
+    <label class="calendar-row"><input type="checkbox" id="showAllDay"> All day, when nothing timed is left today</label>
     <div id="allDayOptions" class="indented">
         <label class="calendar-row"><input type="checkbox" id="allDayCutoff"> Until <input type="time" id="allDayUntil" value="17:00"></label>
     </div>
@@ -167,6 +177,9 @@
         // rejects messages that use the action instance's context instead.
         var ws, piUUID, actionID;
         var allCalendars = [];
+        var reminderLists = [];
+        var remindersAccess = 'notDetermined';   // granted | denied | notDetermined
+        var reminderRetries = 0;
         var apps = [];          // installed suggestions: {id, name, group: 'calendar' | 'other', opens}
         var webCalendars = [];  // {id: 'web:…', name, opens}
         var allApps = [];       // every installed app, for "Another app…"
@@ -178,6 +191,10 @@
         // every save sends every field.
         var settings = {
             selectedCalendars: [],      // empty means "all calendars"
+            showEvents: true,           // calendar events
+            showReminders: false,       // reminders due today
+            selectedReminderLists: [],  // empty means "all lists"
+            showTimed: true,            // events and reminders at a set time
             openApp: 'com.apple.iCal',  // a bundle ID, a 'web:' id, or 'url'
             openURL: '',
             noEventsStyle: 'moon',      // moon | smile | smile-dark | loop | loop-dark | check | check-emoji | thumbs | crescent | text | message | custom
@@ -199,6 +216,10 @@
             settings.alertMinutes = Array.isArray(s.alertMinutes) ? s.alertMinutes : [60, 30, 15, 5];
             settings.alertEveryMinute = s.alertEveryMinute === true;
             settings.selectedCalendars = s.selectedCalendars || [];
+            settings.showEvents = s.showEvents !== false;
+            settings.showReminders = s.showReminders === true;
+            settings.selectedReminderLists = s.selectedReminderLists || [];
+            settings.showTimed = s.showTimed !== false;
             settings.openApp = s.openApp || 'com.apple.iCal';
             settings.openURL = s.openURL || '';
             settings.noEventsStyle = s.noEventsStyle || 'moon';
@@ -215,6 +236,7 @@
             renderNoEvents();
             renderAllDay();
             renderAlerts();
+            renderShow();
 
             ws = new WebSocket('ws://127.0.0.1:' + inPort);
 
@@ -231,6 +253,16 @@
                         webCalendars = msg.payload.webCalendars || [];
                         allApps = msg.payload.allApps || [];
                         renderOpenApp();
+                    }
+                    if (msg.payload.reminderLists) {
+                        reminderLists = msg.payload.reminderLists;
+                        remindersAccess = msg.payload.remindersAccess || 'notDetermined';
+                        renderReminders();
+                        // After Reminders is checked, wait for the answer to macOS's prompt.
+                        if (settings.showReminders && remindersAccess === 'notDetermined' && reminderRetries < 30) {
+                            reminderRetries++;
+                            setTimeout(requestPanelData, 2000);
+                        }
                     }
                     if (msg.payload.needsPermission) {
                         document.getElementById('list').innerHTML =
@@ -258,6 +290,8 @@
                     renderNoEvents();
                     renderAllDay();
                     renderAlerts();
+                    renderShow();
+                    renderReminders();
                 }
             };
         }
@@ -283,17 +317,34 @@
         // MARK: Calendars
 
         function renderCalendars() {
-            var list = document.getElementById('list');
+            renderCheckList(document.getElementById('list'), document.getElementById('hint'),
+                            allCalendars, 'selectedCalendars', 'calendar', 'No calendars found.');
+        }
+
+        // A checkbox for each calendar or reminder list. The setting holds the
+        // checked IDs, or nothing when every one is checked.
+        function renderCheckList(list, hint, items, key, noun, emptyText) {
             list.innerHTML = '';
 
-            if (allCalendars.length === 0) {
-                list.innerHTML = '<div class="loading">No calendars found.</div>';
+            function updateHint() {
+                var selectedIDs = settings[key];
+                if (selectedIDs.length === 0) {
+                    hint.textContent = items.length ? 'All ' + noun + 's shown' : '';
+                    return;
+                }
+                // Don't count saved IDs of ones that have since been deleted.
+                var count = items.filter(function(c) { return selectedIDs.indexOf(c.id) !== -1; }).length;
+                hint.textContent = count + ' ' + noun + (count !== 1 ? 's' : '') + ' selected';
+            }
+
+            if (items.length === 0) {
+                list.innerHTML = '<div class="loading">' + emptyText + '</div>';
                 updateHint();
                 return;
             }
 
-            var selectedIDs = settings.selectedCalendars;
-            allCalendars.forEach(function(cal) {
+            var selectedIDs = settings[key];
+            items.forEach(function(cal) {
                 var isChecked = selectedIDs.length === 0 || selectedIDs.indexOf(cal.id) !== -1;
 
                 var row = document.createElement('label');
@@ -303,11 +354,11 @@
                 cb.type = 'checkbox';
                 cb.checked = isChecked;
                 cb.addEventListener('change', function() {
-                    // An empty list means "all calendars", so expand it to the
-                    // full set of IDs before adding or removing one.
-                    var current = settings.selectedCalendars.length === 0
-                        ? allCalendars.map(function(c) { return c.id; })
-                        : settings.selectedCalendars.slice();
+                    // An empty list means "all", so expand it to the full set of
+                    // IDs before adding or removing one.
+                    var current = settings[key].length === 0
+                        ? items.map(function(c) { return c.id; })
+                        : settings[key].slice();
 
                     if (cb.checked) {
                         if (current.indexOf(cal.id) === -1) current.push(cal.id);
@@ -315,21 +366,17 @@
                         current = current.filter(function(id) { return id !== cal.id; });
                     }
 
-                    // Keep at least one calendar checked: an empty list would be
-                    // saved as "all", the opposite of what the user asked for.
-                    var anyChecked = allCalendars.some(function(c) {
-                        return current.indexOf(c.id) !== -1;
-                    });
+                    // Keep at least one checked: an empty list would be saved as
+                    // "all", the opposite of what the user asked for.
+                    var anyChecked = items.some(function(c) { return current.indexOf(c.id) !== -1; });
                     if (!anyChecked) {
                         cb.checked = true;
                         return;
                     }
 
-                    // Store empty array when everything is checked (means "all").
-                    var allChecked = allCalendars.every(function(c) {
-                        return current.indexOf(c.id) !== -1;
-                    });
-                    settings.selectedCalendars = allChecked ? [] : current;
+                    // Store an empty array when everything is checked (means "all").
+                    var allChecked = items.every(function(c) { return current.indexOf(c.id) !== -1; });
+                    settings[key] = allChecked ? [] : current;
                     save();
                     updateHint();
                 });
@@ -351,19 +398,56 @@
             updateHint();
         }
 
-        function updateHint() {
-            var hint = document.getElementById('hint');
-            var selectedIDs = settings.selectedCalendars;
-            if (selectedIDs.length === 0) {
-                hint.textContent = 'All calendars shown';
+        // MARK: Events, reminders, timed and all-day
+
+        function renderShow() {
+            document.getElementById('showEvents').checked = settings.showEvents;
+            document.getElementById('eventOptions').classList.toggle('hidden', !settings.showEvents);
+            document.getElementById('showReminders').checked = settings.showReminders;
+            document.getElementById('reminderOptions').classList.toggle('hidden', !settings.showReminders);
+            document.getElementById('showTimed').checked = settings.showTimed;
+        }
+
+        function renderReminders() {
+            var list = document.getElementById('reminderList');
+            var hint = document.getElementById('reminderHint');
+            if (remindersAccess === 'denied') {
+                list.innerHTML = '<div class="loading">⚠️ Reminders access not granted.<br>' +
+                    'Allow “StreamDeck Calendar Alerts” in System Settings → ' +
+                    'Privacy &amp; Security → Reminders.</div>';
+                hint.textContent = '';
                 return;
             }
-            // Don't count saved IDs of calendars that have since been deleted.
-            var count = allCalendars.filter(function(c) {
-                return selectedIDs.indexOf(c.id) !== -1;
-            }).length;
-            hint.textContent = count + ' calendar' + (count !== 1 ? 's' : '') + ' selected';
+            if (remindersAccess !== 'granted') {
+                list.innerHTML = '<div class="loading">Waiting for access to Reminders…</div>';
+                hint.textContent = '';
+                return;
+            }
+            renderCheckList(list, hint, reminderLists, 'selectedReminderLists', 'list', 'No reminder lists found.');
         }
+
+        document.getElementById('showEvents').addEventListener('change', function(e) {
+            settings.showEvents = e.target.checked;
+            renderShow();
+            save();
+        });
+        document.getElementById('showReminders').addEventListener('change', function(e) {
+            settings.showReminders = e.target.checked;
+            renderShow();
+            save();
+            if (settings.showReminders) {
+                ws.send(JSON.stringify({
+                    event: 'sendToPlugin', action: actionID, context: piUUID,
+                    payload: { request: 'requestReminders' }
+                }));
+                reminderRetries = 0;
+                setTimeout(requestPanelData, 1000);
+            }
+        });
+        document.getElementById('showTimed').addEventListener('change', function(e) {
+            settings.showTimed = e.target.checked;
+            save();
+        });
 
         // MARK: All-day events
 

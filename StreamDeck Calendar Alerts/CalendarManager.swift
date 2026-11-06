@@ -6,13 +6,20 @@ struct CalendarInfo {
     let hexColor: String
 }
 
+// Whether the helper can read reminders: "granted", "denied", or "notDetermined"
+// (not asked yet, because no key has shown reminders).
+enum RemindersAccess: String {
+    case granted, denied, notDetermined
+}
+
 struct SharedEvent {
     let title: String
     let startDate: Date
     let endDate: Date
     let identifier: String
     let calendarIdentifier: String
-    var isAllDay = false
+    var isAllDay = false                // for a reminder: due today with no time
+    var isReminder = false              // a reminder rather than a calendar event
 
     // For opening the event in a calendar app (see AppLauncher.eventLink).
     var calendarItemIdentifier = ""     // EventKit's local ID; Apple Calendar's ical:// links
@@ -37,6 +44,14 @@ enum CalendarManager {
     static let eventsURL    = directory.appendingPathComponent("events.json")
     static let calendarsURL = directory.appendingPathComponent("calendars.json")
     static let statusURL    = directory.appendingPathComponent("status.json")
+    static let reminderListsURL = directory.appendingPathComponent("reminder-lists.json")
+    // Written by the plugin while any key shows reminders. The helper only asks for
+    // reminders access once it exists, so nobody who never uses them is asked.
+    static let remindersWantedURL = directory.appendingPathComponent("reminders-wanted")
+
+    // Plugin → helper, through the distributed notification center (same user only).
+    static let remindersWantedNotification = Notification.Name("com.joeangell.calendar-alerts.remindersWanted")
+    static let setReminderCompletedNotification = Notification.Name("com.joeangell.calendar-alerts.setReminderCompleted")
 
     // Writes atomically so the plugin never reads a half-written file.
     static func writeJSON(_ object: Any, to url: URL) {
@@ -63,6 +78,28 @@ enum CalendarManager {
         return !authorized
     }
 
+    static func remindersAccess() -> RemindersAccess {
+        guard let status = readJSON(statusURL) as? [String: Any],
+              let value = status["reminders"] as? String else { return .notDetermined }
+        return RemindersAccess(rawValue: value) ?? .notDetermined
+    }
+
+    // Asks the helper to read reminders, asking for access first if it hasn't yet.
+    static func requestReminders() {
+        if !FileManager.default.fileExists(atPath: remindersWantedURL.path) {
+            writeJSON(["wanted": true], to: remindersWantedURL)
+        }
+        DistributedNotificationCenter.default().postNotificationName(
+            remindersWantedNotification, object: nil, userInfo: nil, deliverImmediately: true)
+    }
+
+    // Asks the helper to mark a reminder done (or not done again).
+    static func setReminder(_ identifier: String, completed: Bool) {
+        DistributedNotificationCenter.default().postNotificationName(
+            setReminderCompletedNotification, object: nil,
+            userInfo: ["identifier": identifier, "completed": completed], deliverImmediately: true)
+    }
+
     static func readEventsFromSharedFile() -> [SharedEvent] {
         guard let array = readJSON(eventsURL) as? [[String: Any]] else { return [] }
         return array.compactMap { dict in
@@ -75,6 +112,7 @@ enum CalendarManager {
                 identifier: dict["identifier"] as? String ?? "",
                 calendarIdentifier: dict["calendarIdentifier"] as? String ?? "",
                 isAllDay: dict["allDay"] as? Bool ?? false,
+                isReminder: dict["reminder"] as? Bool ?? false,
                 calendarItemIdentifier: dict["calendarItemIdentifier"] as? String ?? "",
                 externalIdentifier: dict["externalIdentifier"] as? String ?? "",
                 calendarTitle: dict["calendarTitle"] as? String ?? "",
@@ -83,25 +121,51 @@ enum CalendarManager {
         }
     }
 
-    // Today's events in the chosen calendars (all calendars when calendarIDs is empty):
-    // the next timed event still to come, and the all-day events covering now,
-    // in a steady order (by calendar, then title) so the key doesn't jump between them.
-    static func todaysEventsFromSharedFile(filteredTo calendarIDs: Set<String> = [])
-        -> (next: SharedEvent?, allDay: [SharedEvent]) {
-        let now = Date()
-        let events = readEventsFromSharedFile()
-            .filter { calendarIDs.isEmpty || calendarIDs.contains($0.calendarIdentifier) }
-        let next = events
-            .filter { !$0.isAllDay && $0.startDate > now }
-            .min { $0.startDate < $1.startDate }
-        let allDay = events
-            .filter { $0.isAllDay && $0.startDate <= now && $0.endDate > now }
-            .sorted { ($0.calendarTitle, $0.title) < ($1.calendarTitle, $1.title) }
-        return (next, allDay)
+    // What a key can show today:
+    //   next    the next timed event or reminder still to come
+    //   allDay  all-day events covering now, reminders due today with no time, and
+    //           timed reminders due earlier today that aren't done yet. Reminders
+    //           come first (overdue, then by time), so marking one done moves the
+    //           key on; then events by calendar and title, a steady order so the key
+    //           doesn't jump between them.
+    struct Filter {
+        var events = true
+        var reminders = false
+        var calendarIDs: Set<String> = []       // empty = all calendars
+        var reminderListIDs: Set<String> = []   // empty = all lists
+        var hidden: Set<String> = []            // reminders just marked done
     }
 
-    static func readCalendarsFromSharedFile() -> [CalendarInfo] {
-        guard let array = readJSON(calendarsURL) as? [[String: Any]] else { return [] }
+    static func today(_ filter: Filter) -> (next: SharedEvent?, allDay: [SharedEvent]) {
+        let now = Date()
+        let items = readEventsFromSharedFile().filter { item in
+            if item.isReminder {
+                return filter.reminders && !filter.hidden.contains(item.calendarItemIdentifier)
+                    && (filter.reminderListIDs.isEmpty || filter.reminderListIDs.contains(item.calendarIdentifier))
+            }
+            return filter.events && (filter.calendarIDs.isEmpty || filter.calendarIDs.contains(item.calendarIdentifier))
+        }
+        let next = items
+            .filter { !$0.isAllDay && $0.startDate > now }
+            .min { $0.startDate < $1.startDate }
+        let reminders = items
+            .filter { $0.isReminder && ($0.isAllDay || $0.startDate <= now) }
+            .sorted { a, b in
+                // Overdue timed reminders, earliest first, then the ones for today.
+                if a.isAllDay != b.isAllDay { return !a.isAllDay }
+                return (a.startDate, a.title) < (b.startDate, b.title)
+            }
+        let events = items
+            .filter { !$0.isReminder && $0.isAllDay && $0.startDate <= now && $0.endDate > now }
+            .sorted { ($0.calendarTitle, $0.title) < ($1.calendarTitle, $1.title) }
+        return (next, reminders + events)
+    }
+
+    static func readCalendarsFromSharedFile() -> [CalendarInfo] { readCalendarList(calendarsURL) }
+    static func readReminderListsFromSharedFile() -> [CalendarInfo] { readCalendarList(reminderListsURL) }
+
+    private static func readCalendarList(_ url: URL) -> [CalendarInfo] {
+        guard let array = readJSON(url) as? [[String: Any]] else { return [] }
         return array.compactMap { dict in
             guard let id = dict["id"] as? String,
                   let title = dict["title"] as? String else { return nil }

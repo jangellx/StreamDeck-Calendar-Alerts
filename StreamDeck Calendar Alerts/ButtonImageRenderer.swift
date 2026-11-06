@@ -28,7 +28,8 @@ final class ButtonImageRenderer {
     // flashPhase is only meaningful when minutesUntil == 0:
     //   false → no strip, red "NOW" text
     //   true  → red strip, black "NOW" text
-    func renderEvent(title: String, minutesUntil: Int, flashPhase: Bool = false) -> String {
+    // A reminder is drawn like an event, with Reminders' open circle before its title.
+    func renderEvent(title: String, minutesUntil: Int, flashPhase: Bool = false, reminder: Bool = false) -> String {
         guard let ctx = makeKeyContext() else { return "" }
         Self.fillKeyBackground(ctx, size: size)
 
@@ -63,7 +64,7 @@ final class ButtonImageRenderer {
                  in: CGRect(x: 4, y: 2, width: 64, height: 18))
 
             // Upper area: event title, white, left-aligned, wraps up to ~3 lines.
-            draw(cleanTitle(title),
+            draw(keyTitle(title, reminder: reminder),
                  font: .boldSystemFont(ofSize: 11),
                  color: .white,
                  alignment: .left,
@@ -75,20 +76,38 @@ final class ButtonImageRenderer {
 
     // An all-day event, shown when no timed event is left today: the title as
     // for a timed event, with "All day" in place of the countdown. `others` is
-    // how many more all-day events there are today ("All day +2").
-    func renderAllDay(title: String, others: Int = 0) -> String {
+    // how many more all-day items there are today ("All day +2"). Reminders say
+    // "Today", or "Overdue" when their time has passed.
+    func renderAllDay(title: String, others: Int = 0, label: String = "All day", reminder: Bool = false) -> String {
         guard let ctx = makeKeyContext() else { return "" }
         Self.fillKeyBackground(ctx, size: size)
         withNSGraphicsContext(ctx) {
-            draw(others > 0 ? "All day +\(others)" : "All day",
+            draw(others > 0 ? "\(label) +\(others)" : label,
                  font: .boldSystemFont(ofSize: 13),
                  color: NSColor(white: 0.62, alpha: 1),
                  alignment: .center,
                  in: CGRect(x: 2, y: 3, width: 68, height: 18))
-            draw(cleanTitle(title),
+            draw(keyTitle(title, reminder: reminder),
                  font: .boldSystemFont(ofSize: 11),
                  color: .white,
                  alignment: .left,
+                 in: CGRect(x: 4, y: 24, width: 64, height: 44))
+        }
+        return toPNGDataURI(ctx)
+    }
+
+    // A reminder just marked done from the key: checked off, on a green strip.
+    // Holding or double-tapping again while it shows marks it not done.
+    func renderReminderDone(title: String) -> String {
+        guard let ctx = makeKeyContext() else { return "" }
+        Self.fillKeyBackground(ctx, size: size)
+        ctx.setFillColor(Palette.green)
+        ctx.fill(CGRect(x: 0, y: 0, width: size, height: 23))
+        withNSGraphicsContext(ctx) {
+            draw("Done", font: .boldSystemFont(ofSize: 15), color: .black, alignment: .center,
+                 in: CGRect(x: 4, y: 2, width: 64, height: 18))
+            draw("✓ " + cleanTitle(title), font: .boldSystemFont(ofSize: 11),
+                 color: NSColor(white: 0.62, alpha: 1), alignment: .left,
                  in: CGRect(x: 4, y: 24, width: 64, height: 44))
         }
         return toPNGDataURI(ctx)
@@ -207,6 +226,7 @@ final class ButtonImageRenderer {
     enum Palette {
         static let keyBackground = CGColor(red: 0.10, green: 0.10, blue: 0.12, alpha: 1)
         static let red    = CGColor(red: 0.90, green: 0.15, blue: 0.15, alpha: 1)
+        static let green  = CGColor(red: 0.20, green: 0.75, blue: 0.35, alpha: 1)
         static let white  = CGColor(red: 1, green: 1, blue: 1, alpha: 1)
     }
 
@@ -385,6 +405,10 @@ final class ButtonImageRenderer {
     // "4.2 - " from "4.2 - Review". The code must be followed by a space, so
     // titles like "1:1 with Sam" or "3D printing" are left alone.
     private static let roomCodePrefix = try? NSRegularExpression(pattern: #"^\d[\d.\-]*\s+(?:[-–—]\s+)?"#)
+
+    private func keyTitle(_ title: String, reminder: Bool) -> String {
+        reminder ? "○ " + cleanTitle(title) : cleanTitle(title)
+    }
 
     private func cleanTitle(_ title: String) -> String {
         guard let regex = Self.roomCodePrefix,

@@ -11,6 +11,10 @@ import AppKit
 //                                (Fantastical has no link to a single event)
 //   Google Calendar  its day     https://calendar.google.com/calendar/r/day/<y>/<m>/<d>
 //
+// A reminder opens in Reminders, at the reminder, when the key is set to
+// Calendar or Reminders (x-apple-reminderkit://REMCDReminder/<calendarItemIdentifier>,
+// undocumented). Fantastical and Google Calendar show its day.
+//
 // Other apps and web calendars are simply opened.
 enum AppLauncher {
     static let appleCalendarID = "com.apple.iCal"
@@ -19,6 +23,7 @@ enum AppLauncher {
     private static let fantasticalID = "com.flexibits.fantastical2.mac"
     private static let busyCalIDs: Set<String> = ["com.busymac.busycal3", "com.busymac.busycal-setapp"]
     private static let notionCalendarID = "com.cron.electron"
+    private static let remindersID = "com.apple.reminders"
 
     // Popular Mac apps offered at the top of the menu when they're installed.
     // Any other app that opens webcal: links is added to the calendar group too.
@@ -132,7 +137,9 @@ enum AppLauncher {
         }
 
         var bundleID = choice
-        var appURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: choice)
+        // A reminder belongs in Reminders rather than Calendar.
+        if event?.isReminder == true, choice == appleCalendarID { bundleID = remindersID }
+        var appURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID)
         if appURL == nil {
             bundleID = appleCalendarID
             appURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: appleCalendarID)
@@ -152,6 +159,17 @@ enum AppLauncher {
     }
 
     static func eventLink(for bundleID: String, event: SharedEvent) -> URL? {
+        if event.isReminder {
+            switch bundleID {
+            case remindersID:
+                guard !event.calendarItemIdentifier.isEmpty else { return nil }
+                return URL(string: "x-apple-reminderkit://REMCDReminder/\(encode(event.calendarItemIdentifier))")
+            case fantasticalID:
+                return URL(string: "x-fantastical://date/\(localDay(event.startDate))")
+            default:
+                return nil
+            }
+        }
         switch bundleID {
         case appleCalendarID:
             guard !event.calendarItemIdentifier.isEmpty else { return nil }
