@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="color-scheme" content="light dark">
 <title>Calendar Alerts: your next meeting on a Stream Deck key</title>
-<meta name="description" content="A free Stream Deck plugin for macOS that counts down to your next calendar event with color-coded urgency, plays an alert as it gets close, and opens the event when you press the key.">
+<meta name="description" content="A free Stream Deck plugin for macOS that counts down to your next calendar event or reminder with color-coded urgency, plays an alert as it gets close, joins the meeting or checks off the reminder when you hold the key.">
 <!-- Link previews (Open Graph, and X's card) -->
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Calendar Alerts">
@@ -93,6 +93,12 @@ section{padding:64px 0 0}
 .countdown img{border-radius:14%;margin:0 auto 10px;width:100%;max-width:120px;box-shadow:0 6px 16px rgba(0,0,0,.18)}
 .countdown strong{display:block;color:var(--text);font-size:15px}
 
+/* Reminders */
+.countdown.reminders{max-width:520px;margin:0 auto;--n:3}
+.press-table{max-width:620px;margin:28px auto 0}
+.press-table td:first-child{white-space:nowrap}
+.press-table td{color:var(--muted)}
+
 /* Pressing the key */
 .split{display:grid;gap:32px;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));align-items:center}
 .split h2{text-align:left}
@@ -148,7 +154,7 @@ footer nav a{margin:0 8px;white-space:nowrap;display:inline-block}
 <header class="hero">
 <img class="icon" src="images/icon.png" width="512" height="512" alt="">
 <h1>Calendar Alerts</h1>
-<p class="lead">Your next meeting on an <a href="https://www.elgato.com/stream-deck">Elgato Stream Deck</a> key, counting down in color so you're never caught by surprise.</p>
+<p class="lead">Your next meeting or reminder on an <a href="https://www.elgato.com/stream-deck">Elgato Stream Deck</a> key, counting down in color so you're never caught by surprise.</p>
 <div class="buttons">
 <a class="button primary" href="https://github.com/jangellx/StreamDeck-Calendar-Alerts/releases/latest/download/com.joeangell.calendar-alerts.streamDeckPlugin"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 3v10M5.5 8.5 10 13l4.5-4.5M4 17h12"/></svg>Download the Plugin</a>
 <a class="button plain" href="https://github.com/jangellx/StreamDeck-Calendar-Alerts">View on GitHub</a>
@@ -186,14 +192,37 @@ footer nav a{margin:0 8px;white-space:nowrap;display:inline-block}
 <div class="grid">
 <div class="card"><h3>Color-coded countdown</h3><p>Light blue, blue, yellow, orange and red as the event gets closer, then a flashing <strong>NOW</strong> in the final minute.</p></div>
 <div class="card"><h3>An alert you'll hear</h3><p>Your Mac's alert sound plays at 60, 30, 15 and 5 minutes before each event. Pick other times, every minute for the last five, or turn it off.</p></div>
-<div class="card"><h3>Only what's still to come</h3><p>The key shows the next event today. Cancelled events and events you've declined are skipped.</p></div>
+<div class="card"><h3>Only what's still to come</h3><p>The key shows what's next today. Cancelled events and events you've declined are skipped.</p></div>
 <div class="card"><h3>Birthdays and holidays</h3><p>When the meetings are over, the key shows today's all-day event, marked <strong>All day</strong>, until a time you choose. Or leave all-day events off.</p></div>
 <div class="card"><h3>Press to open the event</h3><p>Pressing the key opens your calendar app or web calendar, and where it can, goes straight to the event it's counting down to.</p></div>
-<div class="card"><h3>A key for each part of your life</h3><p>Every key has its own calendars and settings: one for work, another for the family.</p></div>
+<div class="card"><h3>Hold to join the meeting</h3><p>Hold the key or double-press it to join the event's Zoom, Google Meet, Teams, Webex or other video meeting. Or make that what a single press does.</p></div>
+<div class="card"><h3>Reminders, too</h3><p>Show reminders due today from the Reminders app. Ones with a time count down like events; the rest wait on the key until they're done.</p></div>
+<div class="card"><h3>Check it off from the key</h3><p>Hold the key or double-press it to mark the reminder done, and the key moves on. Changed your mind? Do it again while it says <strong>Done</strong>.</p></div>
+<div class="card"><h3>A key for each part of your life</h3><p>Every key has its own calendars, reminder lists and settings: one for work, another for the family, one just for all-day events.</p></div>
 <div class="card"><h3>Tidy titles</h3><p>A leading room number is trimmed, so "101 Team Standup" fits as "Team Standup".</p></div>
 <div class="card"><h3>Tonight's moon when you're done</h3><p>When there's nothing left today, the key shows the actual phase of tonight's moon, or another image you choose.</p></div>
-<div class="card"><h3>Private by design</h3><p>Your calendars are read on your Mac and never leave it. There's no account, no tracking and no cloud service.</p></div>
+<div class="card"><h3>Private by design</h3><p>Your calendars and reminders are read on your Mac and never leave it. There's no account, no tracking and no cloud service.</p></div>
 </div>
+</section>
+
+<section id="reminders">
+<h2>Reminders, and a key you can hold</h2>
+<p class="sub">Turn on reminders in a key's settings and they share the key with your events. Hold the key, or double-press it, for the second thing it can do.</p>
+<ol class="countdown reminders">
+<li><img src="images/key-reminder.png" width="144" height="144" alt="A key reading Call the plumber, with an open circle, 12m on yellow."><strong>At a time</strong>Counts down like an event</li>
+<li><img src="images/key-reminder-today.png" width="144" height="144" alt="A key reading Water the plants, with an open circle, Today."><strong>Due today</strong>Waits until it's done</li>
+<li><img src="images/key-reminder-done.png" width="144" height="144" alt="A key reading Water the plants, checked, Done on green."><strong>Held</strong>Checked off</li>
+</ol>
+<div class="table press-table">
+<table>
+<thead><tr><th>On the key</th><th>Press</th><th>Hold or double-press</th></tr></thead>
+<tbody>
+<tr><td>An event</td><td>Opens the event</td><td>Joins its video meeting</td></tr>
+<tr><td>A reminder</td><td>Opens the reminder</td><td>Marks it done</td></tr>
+</tbody>
+</table>
+</div>
+<p class="also">Each can be swapped in the key's settings, so a single press joins the meeting or checks off the reminder. Meeting links from Zoom, Google Meet, Microsoft Teams, Webex, GoTo Meeting, Whereby, Jitsi, Amazon Chime, FaceTime and Slack huddles are found in the event's link, location or notes.</p>
 </section>
 
 <section id="press">
@@ -201,7 +230,7 @@ footer nav a{margin:0 8px;white-space:nowrap;display:inline-block}
 <div>
 <h2>Press the key, see the meeting</h2>
 <p>Choose what the key opens in its settings: <a href="https://support.apple.com/guide/calendar/welcome/mac">Calendar</a>, <a href="https://flexibits.com/fantastical">Fantastical</a>, <a href="https://www.busymac.com/busycal/">BusyCal</a>, <a href="https://www.microsoft.com/microsoft-365/outlook">Outlook</a>, <a href="https://www.zoom.com/">Zoom</a>, <a href="https://culturedcode.com/things/">Things</a> and the other calendar, meeting and task apps you have installed, a web calendar such as <a href="https://calendar.google.com/">Google Calendar</a>, <a href="https://outlook.office.com/calendar/">Outlook on the web</a>, <a href="https://outlook.live.com/calendar/">Outlook.com</a>, <a href="https://www.icloud.com/calendar/">iCloud</a> or <a href="https://proton.me/calendar">Proton Calendar</a>, any other app, or any web page.</p>
-<p>Where the app supports it, the press takes you to the event the key is counting down to. When there are no more events today, it just opens the app.</p>
+<p>Where the app supports it, the press takes you to the event the key is counting down to. Reminders have their own choice, and open at the reminder in Reminders unless you pick something else. When there's nothing left today, it just opens the app.</p>
 </div>
 <div class="table">
 <table>

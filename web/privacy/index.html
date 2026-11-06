@@ -55,17 +55,18 @@ footer{text-align:center;color:var(--muted);font-size:14px;margin-top:32px}
 <p class="back"><a href="../">‹ Calendar Alerts</a></p>
 <img src="../images/icon.png" width="512" height="512" alt="">
 <h1>Privacy</h1>
-<p class="lead">Your calendar stays on your Mac. The plugin has no account, no analytics, and no server of its own.</p>
+<p class="lead">Your calendar and reminders stay on your Mac. The plugin has no account, no analytics, and no server of its own.</p>
 </header>
 
 <section>
 <h2>The plugin</h2>
 <ul>
 <li>A small helper app that comes with the plugin reads today's events and your list of calendars with macOS's calendar access, which you allow when you first add the key. You can turn it off any time in System Settings → Privacy &amp; Security → Calendars.</li>
-<li>The helper saves those events and the calendar list to <code>~/Library/Caches/com.joeangell.calendar-alerts/</code> on your Mac, where the plugin reads them to draw the key.</li>
+<li>If you turn on reminders for a key, the helper also asks for access to Reminders, then reads the reminders due today and your list of reminder lists. When you hold or double-press a key to mark a reminder done (or not done), the helper makes that one change in Reminders. You can turn this access off any time in System Settings → Privacy &amp; Security → Reminders.</li>
+<li>The helper saves those events, reminders and lists to <code>~/Library/Caches/com.joeangell.calendar-alerts/</code> on your Mac, where the plugin reads them to draw the key.</li>
 <li>The plugin talks only to the Stream Deck app on the same Mac, over a local connection. It doesn't send your events, or anything else, over the internet.</li>
 <li>Each key's settings, such as which calendars it shows, are saved by the Stream Deck app.</li>
-<li>When you press the key, it opens the app or web page you chose for it. If that's a web calendar, your browser loads it as it would any other page.</li>
+<li>When you press the key, it opens the app or web page you chose for it. If that's a web calendar, your browser loads it as it would any other page. Joining a meeting opens the meeting link from the event, in its app or your browser.</li>
 </ul>
 <p>To remove everything, quit Stream Deck and delete <code>~/Library/Application Support/com.elgato.StreamDeck/Plugins/com.joeangell.calendar-alerts.sdPlugin</code> and <code>~/Library/Caches/com.joeangell.calendar-alerts</code>.</p>
 </section>

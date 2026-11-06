@@ -72,6 +72,9 @@ let samples: [(String, String)] = [
     ("key-now", renderer.renderEvent(title: "Dentist", minutesUntil: 0, flashPhase: true)),
     ("key-now-off", renderer.renderEvent(title: "Dentist", minutesUntil: 0, flashPhase: false)),   // NOW's other flash frame, for the website
     ("key-all-day", renderer.renderAllDay(title: "Mom's birthday")),
+    ("key-reminder", renderer.renderEvent(title: "Call the plumber", minutesUntil: 12, reminder: true)),
+    ("key-reminder-today", renderer.renderAllDay(title: "Water the plants", label: "Today", reminder: true)),
+    ("key-reminder-done", renderer.renderReminderDone(title: "Water the plants")),
     ("no-events-loop", renderer.renderNoEvents(style: "loop")),
     ("no-events-loop-dark", renderer.renderNoEvents(style: "loop-dark")),
     ("no-events-smile", renderer.renderNoEvents(style: "smile")),

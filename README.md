@@ -2,7 +2,7 @@
 
 <img src="Images/pluginIcon@2x.png" width="128" align="right" alt="Calendar Alerts icon">
 
-A Stream Deck plugin for macOS that puts your next calendar event on a key. It counts down to the event with color-coded urgency, plays an alert sound as the event gets close, and flashes **NOW** in the final minute. Press the key to open your calendar app.
+A Stream Deck plugin for macOS that puts your next calendar event, or reminder, on a key. It counts down to it with color-coded urgency, plays an alert sound as it gets close, and flashes **NOW** in the final minute. Press the key to open it; hold the key to join the meeting, or to mark the reminder done.
 
 <p>
 <img src="docs/images/key-90m.png" width="72" alt="1h 30m">
@@ -13,6 +13,7 @@ A Stream Deck plugin for macOS that puts your next calendar event on a key. It c
 <img src="docs/images/key-3m.png" width="72" alt="3 minutes">
 <img src="docs/images/key-now.png" width="72" alt="NOW">
 <img src="docs/images/key-all-day.png" width="72" alt="All day">
+<img src="docs/images/key-reminder.png" width="72" alt="A reminder, 12 minutes">
 <img src="docs/images/no-events-moon.png" width="72" alt="No more events: tonight's moon">
 </p>
 
@@ -22,9 +23,9 @@ The plugin's website is **[sdcalendaralerts.tmproductions.com](https://sdcalenda
 
 ## What it shows
 
-The key shows the title of your next event today and how long until it starts:
+The key shows the title of your next event or reminder today and how long until it's due:
 
-| Time until the event | Key |
+| Time until it starts | Key |
 |---|---|
 | 60 minutes or more | Hours and minutes, no color (`1h 30m`) |
 | 31–59 minutes | Light blue |
@@ -40,14 +41,31 @@ The key shows the title of your next event today and how long until it starts:
 - A leading room number is trimmed from titles, so "101 Team Standup" shows as "Team Standup".
 - When there's nothing left today, the key shows tonight's moon phase, or whichever image you've picked (see below).
 
+### Reminders
+
+<img src="docs/images/key-reminder.png" width="56" alt="A reminder due in 12 minutes"> <img src="docs/images/key-reminder-today.png" width="56" alt="A reminder due today, with no time"> <img src="docs/images/key-reminder-done.png" width="56" alt="A reminder just marked done">
+
+Turn on **Reminders due today** in a key's settings to show reminders from the Reminders app too, marked with an open circle like the one in Reminders. The first time you do, macOS asks whether "StreamDeck Calendar Alerts" can access your reminders.
+
+- A reminder due at a time counts down like an event, with the same colors and alerts.
+- A reminder due today with no time shows like an all-day event, marked **Today**. One whose time has passed but isn't done stays on the key, marked **Overdue**. These show before all-day events, so marking one done moves the key on.
+- Only reminders due today are shown, not ones left over from earlier days.
+- Hold the key, or double-press it, to mark the reminder done. The key shows **Done** for 5 seconds; hold or double-press again while it does to mark the reminder not done.
+
+### Joining meetings
+
+When an event has a video meeting link in its URL, location or notes, holding the key or double-pressing it joins the meeting. Links from Zoom, Google Meet, Microsoft Teams, Webex, GoTo Meeting, Whereby, Jitsi Meet, Amazon Chime, FaceTime and Slack huddles are recognized. Zoom and Teams links open straight in their apps when they're installed.
+
+A single press acts at once unless the key has something else to do on a hold or double press (a reminder, or an event with a meeting link). Then it waits a moment to see whether a second press follows.
+
 ## Settings
 
-Select the key in the Stream Deck app to see its settings. Each key has its own, so you can have one key for work calendars and another for family.
+Select the key in the Stream Deck app to see its settings. Each key has its own, so you can have one key for work calendars and another for family, or one just for reminders.
 
-- **Show events from**: check the calendars to include. All of them are included until you uncheck one.
-- **All-day events**: uncheck **Show when nothing else is left today** to skip all-day events altogether. Check **Until** and pick a time to stop showing them at that time each day; after it, the key shows your "no more events" image instead.
+- **Show**: check **Calendar events** and choose the calendars to include, and check **Reminders due today** and choose the lists to include. All calendars and lists are included until you uncheck one.
+- **Scheduled and all-day**: **Scheduled** counts down to events and reminders with a start time. **All-day** shows all-day events, and reminders with no time or past their time, once nothing scheduled is left today. Uncheck **Scheduled** for a key that only shows all-day items, or **All-day** to skip them. Check **Stop showing them at** and pick a time to stop showing all-day items then each day; after it, the key shows your "no more events" image instead. A summary under these options says what the key will show through the day.
 - **Alert sound**: uncheck **Play an alert before each event** for a silent key, or check the times you want: 1 hour, 30, 15 or 5 minutes before. **Every minute for the last 5 minutes** plays it at 5, 4, 3, 2 and 1 minutes before.
-- **When pressed, open**: the app or web calendar to open. The menu lists the calendar, meeting and task apps you have installed (such as Fantastical, BusyCal, Outlook, Zoom or Things), web calendars (Google Calendar, Outlook on the web, Outlook.com, iCloud and Proton Calendar), **Another app…** for any other app on your Mac, and **Web page or URL…**.
+- **When pressed, open**: the app or web calendar to open. Events and reminders each have their own menu (the reminders menu appears when the key shows reminders, and opens Reminders unless you choose otherwise). The menu lists the calendar, meeting and task apps you have installed (such as Fantastical, BusyCal, Outlook, Zoom or Things), web calendars (Google Calendar, Outlook on the web, Outlook.com, iCloud and Proton Calendar), **Another app…** for any other app on your Mac, and **Web page or URL…**.
 
   Where an app supports it, pressing the key shows the event the key is counting down to:
 
@@ -60,7 +78,9 @@ Select the key in the Stream Deck app to see its settings. Each key has its own,
   | Google Calendar | The event's day, in the Google account the event belongs to |
   | Anything else | The app or page, as it last was |
 
-  An all-day event on the key opens the same way. When there are no more events today, the key just opens the app.
+  An all-day event on the key opens the same way. A reminder opens at the reminder in Reminders, or on its day in Fantastical or Google Calendar. When there's nothing left today, the key just opens the app.
+
+  **Pressing the key** chooses what a single press does, separately for events and reminders. For events: **Opens the event** (the default; holding or double-pressing joins the meeting) or **Joins the meeting** (holding or double-pressing opens the event; an event with no meeting link opens with a single press). For reminders: **Opens the reminder** (holding or double-pressing marks it done) or **Marks it done** (holding or double-pressing opens it).
 - **When there are no more events**: choose what the key shows.
 
   <img src="docs/images/no-events-moon.png" width="56" alt="Moon phase"> <img src="docs/images/no-events-smile.png" width="56" alt="Smiling calendar (light)"> <img src="docs/images/no-events-smile-dark.png" width="56" alt="Smiling calendar (dark)"> <img src="docs/images/no-events-loop.png" width="56" alt="Infinity clock (light)"> <img src="docs/images/no-events-loop-dark.png" width="56" alt="Infinity clock (dark)"> <img src="docs/images/no-events-check.png" width="56" alt="Checkmark Calendar"> <img src="docs/images/no-events-text.png" width="56" alt="Text only">
@@ -79,7 +99,7 @@ Select the key in the Stream Deck app to see its settings. Each key has its own,
 1. Download **[com.joeangell.calendar-alerts.streamDeckPlugin](https://github.com/jangellx/StreamDeck-Calendar-Alerts/releases/latest/download/com.joeangell.calendar-alerts.streamDeckPlugin)** from the [latest release](https://github.com/jangellx/StreamDeck-Calendar-Alerts/releases/latest).
 2. Double-click it. The Stream Deck app opens and asks to install the plugin.
 3. In the Stream Deck app's action list, find the **Calendar Alerts** group and drag **Next Appointment** onto a key.
-4. When macOS asks whether "StreamDeck Calendar Alerts" can access your calendars, click **Allow**.
+4. When macOS asks whether "StreamDeck Calendar Alerts" can access your calendars, click **Allow**. If you turn on reminders, it asks about those too.
 
 To update, download and double-click the newer installer the same way.
 
@@ -119,7 +139,7 @@ Then attach the file to a GitHub release. The download links above always point 
 The plugin has three parts:
 
 - **The plugin program** (`StreamDeck Calendar Alerts`): a Swift command-line program that Stream Deck starts. It talks to the Stream Deck app over its local WebSocket. Once a minute it draws each key's image, plays alert sounds, and opens your chosen app when a key is pressed.
-- **CalendarHelper.app**: the same program, run as a small background app. macOS ties calendar permission to the app that asks for it, and a plugin started by Stream Deck would be asking on Stream Deck's behalf. So the plugin starts this helper, which asks for calendar access under its own name ("StreamDeck Calendar Alerts") and reads today's events with EventKit. It saves the events and the calendar list to `~/Library/Caches/com.joeangell.calendar-alerts/`, both when a calendar changes and every 30 seconds, and the plugin reads them from there. The helper quits when the plugin does.
+- **CalendarHelper.app**: the same program, run as a small background app. macOS ties calendar permission to the app that asks for it, and a plugin started by Stream Deck would be asking on Stream Deck's behalf. So the plugin starts this helper, which asks for calendar access under its own name ("StreamDeck Calendar Alerts") and reads today's events with EventKit. Once a key shows reminders it asks for reminders access too, reads today's reminders, and marks one done when the plugin asks it to. It saves the events, reminders, and the calendar and reminder lists to `~/Library/Caches/com.joeangell.calendar-alerts/`, both when a calendar changes and every 30 seconds, and the plugin reads them from there. The helper quits when the plugin does.
 - **The settings panel** (`propertyinspector/index.html`): the web page Stream Deck shows when you select the key. It saves each key's settings in Stream Deck.
 
 ```
@@ -143,9 +163,11 @@ Stream Deck app ⇄ WebSocket ⇄ plugin program ──starts──▶ CalendarH
 ## Troubleshooting
 
 - **The key says "No calendar access".** Open System Settings → Privacy & Security → Calendars and turn on **StreamDeck Calendar Alerts**. The key updates within a minute.
-- **To be asked for calendar access again**, reset the permission and restart Stream Deck:
+- **Reminders don't show, and the settings say "Reminders access not granted".** Open System Settings → Privacy & Security → Reminders and turn on **StreamDeck Calendar Alerts**.
+- **To be asked for calendar or reminders access again**, reset the permission and restart Stream Deck:
   ```bash
   tccutil reset Calendar com.joeangell.calendar-alerts
+  tccutil reset Reminders com.joeangell.calendar-alerts
   ```
 - **Stream Deck's own log** is at `~/Library/Logs/ElgatoStreamDeck/StreamDeck.log`. Search it for `calendar-alerts`.
 
