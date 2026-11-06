@@ -110,6 +110,17 @@
         }
         .link { color: #9cf; cursor: pointer; text-decoration: underline; }
         .hidden { display: none; }
+        .sub-label { color: #bbb; margin: 8px 0 4px; }
+        #eventOpenLabel { margin-top: 0; }
+        #reminderOpen .sub-label { margin-top: 12px; }
+        .summary {
+            color: #bbb;
+            background: #383838;
+            border-radius: 4px;
+            padding: 6px 8px;
+            margin-top: 8px;
+            line-height: 1.4;
+        }
     </style>
 </head>
 <body>
@@ -126,12 +137,13 @@
         <div class="hint">Hold the key, or tap it twice, to mark the reminder on it done.</div>
     </div>
 
-    <div class="section-label">Timed and all-day</div>
-    <label class="calendar-row"><input type="checkbox" id="showTimed"> At a set time, counting down</label>
-    <label class="calendar-row"><input type="checkbox" id="showAllDay"> All day, when nothing timed is left today</label>
+    <div class="section-label">Scheduled and all-day</div>
+    <label class="calendar-row"><input type="checkbox" id="showTimed"> Scheduled: counts down to ones with a start time</label>
+    <label class="calendar-row"><input type="checkbox" id="showAllDay"> All-day: shown once nothing scheduled is left today</label>
     <div id="allDayOptions" class="indented">
-        <label class="calendar-row"><input type="checkbox" id="allDayCutoff"> Until <input type="time" id="allDayUntil" value="17:00"></label>
+        <label class="calendar-row"><input type="checkbox" id="allDayCutoff"> Stop showing them at <input type="time" id="allDayUntil" value="17:00"></label>
     </div>
+    <div class="summary" id="summary"></div>
 
     <div class="section-label">Alert sound</div>
     <label class="calendar-row"><input type="checkbox" id="playAlerts"> Play an alert before each event</label>
@@ -144,10 +156,18 @@
     </div>
 
     <div class="section-label">When pressed, open</div>
+    <div id="eventOpenLabel" class="sub-label">Events in</div>
     <select id="openApp"></select>
     <select id="otherApp" class="hidden"></select>
     <input id="openURL" type="text" class="hidden" placeholder="e.g. calendar.google.com" spellcheck="false">
     <div class="hint" id="openHint"></div>
+    <div id="reminderOpen" class="hidden">
+        <div class="sub-label">Reminders in</div>
+        <select id="openReminderApp"></select>
+        <select id="otherReminderApp" class="hidden"></select>
+        <input id="openReminderURL" type="text" class="hidden" placeholder="e.g. todoist.com" spellcheck="false">
+        <div class="hint" id="openReminderHint"></div>
+    </div>
 
     <div class="section-label">When there are no more events</div>
     <select id="noEventsStyle">
@@ -183,7 +203,6 @@
         var apps = [];          // installed suggestions: {id, name, group: 'calendar' | 'other', opens}
         var webCalendars = [];  // {id: 'web:…', name, opens}
         var allApps = [];       // every installed app, for "Another app…"
-        var openChoice = null;  // OTHER_APP while the user is choosing from every app
         var retries = 0, MAX_RETRIES = 15;
         var KEY_IMAGE_SIZE = 144;   // keys are drawn at 144×144 px
 
@@ -197,6 +216,8 @@
             showTimed: true,            // events and reminders at a set time
             openApp: 'com.apple.iCal',  // a bundle ID, a 'web:' id, or 'url'
             openURL: '',
+            openReminderApp: 'com.apple.reminders',  // the same, for a reminder on the key
+            openReminderURL: '',
             noEventsStyle: 'moon',      // moon | smile | smile-dark | loop | loop-dark | check | check-emoji | thumbs | crescent | text | message | custom
             noEventsMessage: '',        // the key's text when noEventsStyle is 'message'
             noEventsImage: '',          // data: URL when noEventsStyle is 'custom'
@@ -222,6 +243,8 @@
             settings.showTimed = s.showTimed !== false;
             settings.openApp = s.openApp || 'com.apple.iCal';
             settings.openURL = s.openURL || '';
+            settings.openReminderApp = s.openReminderApp || 'com.apple.reminders';
+            settings.openReminderURL = s.openReminderURL || '';
             settings.noEventsStyle = s.noEventsStyle || 'moon';
             settings.noEventsMessage = s.noEventsMessage || '';
             settings.noEventsImage = s.noEventsImage || '';
@@ -406,6 +429,40 @@
             document.getElementById('showReminders').checked = settings.showReminders;
             document.getElementById('reminderOptions').classList.toggle('hidden', !settings.showReminders);
             document.getElementById('showTimed').checked = settings.showTimed;
+            renderSummary();
+        }
+
+        // In plain words, what this key will show through the day.
+        function renderSummary() {
+            var e = settings.showEvents, r = settings.showReminders;
+            var what = e && r ? 'events and reminders' : e ? 'events' : r ? 'reminders' : '';
+            var text;
+            if (!what) {
+                text = 'Check Calendar events or Reminders, or the key only shows its no-more-events image.';
+            } else if (!settings.showTimed && !settings.showAllDay) {
+                text = 'Check Scheduled or All-day, or the key only shows its no-more-events image.';
+            } else {
+                var until = settings.allDayUntil ? ' until ' + formatTime(settings.allDayUntil) : '';
+                var allDay = 'all-day ' + what + (r ? ' (reminders with no time, or past their time)' : '');
+                if (settings.showTimed && settings.showAllDay) {
+                    text = 'Counts down to your next scheduled ' + what + '. When none are left today, shows ' +
+                        allDay + until + ', then the no-more-events image.';
+                } else if (settings.showTimed) {
+                    text = 'Counts down to your next scheduled ' + what + '. When none are left today, ' +
+                        'shows the no-more-events image.';
+                } else {
+                    text = 'Shows today\'s ' + allDay + until + ', then the no-more-events image. ' +
+                        'Scheduled ones are left off.';
+                }
+            }
+            document.getElementById('summary').textContent = text;
+        }
+
+        // "17:30" in the Mac's own style, e.g. "5:30 PM".
+        function formatTime(hhmm) {
+            var parts = hhmm.split(':');
+            var date = new Date(2000, 0, 1, Number(parts[0]), Number(parts[1]));
+            return date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
         }
 
         function renderReminders() {
@@ -434,6 +491,7 @@
         document.getElementById('showReminders').addEventListener('change', function(e) {
             settings.showReminders = e.target.checked;
             renderShow();
+            renderOpenApp();
             save();
             if (settings.showReminders) {
                 ws.send(JSON.stringify({
@@ -446,6 +504,7 @@
         });
         document.getElementById('showTimed').addEventListener('change', function(e) {
             settings.showTimed = e.target.checked;
+            renderSummary();
             save();
         });
 
@@ -460,6 +519,7 @@
             if (settings.allDayUntil) time.value = settings.allDayUntil;
             cutoff.disabled = time.disabled = !settings.showAllDay;
             document.getElementById('allDayOptions').classList.toggle('disabled', !settings.showAllDay);
+            renderSummary();
         }
 
         document.getElementById('showAllDay').addEventListener('change', function(e) {
@@ -544,92 +604,125 @@
             return apps.concat(webCalendars, allApps).find(function(a) { return a.id === id; });
         }
 
-        // The menu entry that matches the saved setting.
-        function currentOpenChoice() {
-            if (settings.openApp === 'url') return 'url';
-            if (openChoice === OTHER_APP) return OTHER_APP;
-            var listed = apps.concat(webCalendars).some(function(a) { return a.id === settings.openApp; });
-            if (listed) return settings.openApp;
-            // Before the plugin's app list arrives, the default still shows as Calendar.
-            if (!apps.length && settings.openApp === 'com.apple.iCal') return settings.openApp;
-            return OTHER_APP;
+        // One "open" menu, for events or for reminders. Each saves its own
+        // settings: a bundle ID, a "web:" id or "url" in appKey, and the URL in urlKey.
+        function OpenPicker(ids, appKey, urlKey, defaultApp, describe) {
+            var picker = this;
+            var choosingOther = false;   // the user picked "Another app…" and hasn't chosen one yet
+            var select = document.getElementById(ids.select);
+            var other = document.getElementById(ids.other);
+            var urlField = document.getElementById(ids.url);
+
+            // The menu entry that matches the saved setting.
+            function currentChoice() {
+                var saved = settings[appKey];
+                if (saved === 'url') return 'url';
+                if (choosingOther) return OTHER_APP;
+                var listed = apps.concat(webCalendars).some(function(a) { return a.id === saved; });
+                if (listed) return saved;
+                // Before the plugin's app list arrives, the default still shows.
+                if (!apps.length && saved === defaultApp) return saved;
+                return OTHER_APP;
+            }
+
+            picker.render = function() {
+                select.innerHTML = '';
+                var calendars = apps.filter(function(a) { return a.group === 'calendar'; });
+                var others = apps.filter(function(a) { return a.group === 'other'; });
+                if (!apps.length) {
+                    var fallback = [{ id: defaultApp, name: defaultApp === 'com.apple.reminders' ? 'Reminders' : 'Calendar' }];
+                    if (defaultApp === 'com.apple.reminders') others = fallback; else calendars = fallback;
+                }
+                addGroup(select, 'Calendar apps', calendars);
+                addGroup(select, 'Meetings and tasks', others);
+                addGroup(select, 'On the web', webCalendars);
+                addGroup(select, 'Other', [
+                    { id: OTHER_APP, name: 'Another app…' },
+                    { id: 'url', name: 'Web page or URL…' }
+                ]);
+                var choice = currentChoice();
+                select.value = choice;
+
+                // "Another app…": every installed app.
+                other.innerHTML = '';
+                var placeholder = document.createElement('option');
+                placeholder.value = '';
+                placeholder.textContent = 'Choose an app…';
+                placeholder.disabled = true;
+                other.appendChild(placeholder);
+                var everyApp = allApps.slice();
+                var saved = settings[appKey];
+                var savedIsApp = saved !== 'url' && saved.indexOf('web:') !== 0;
+                if (choice === OTHER_APP && savedIsApp && allApps.length &&
+                    !everyApp.some(function(a) { return a.id === saved; })) {
+                    // Keep a saved app that's no longer installed visible, so the
+                    // setting doesn't silently change.
+                    everyApp.unshift({ id: saved, name: saved + ' (not found)' });
+                }
+                addOptions(other, everyApp);
+                var pickedOther = choice === OTHER_APP && everyApp.some(function(a) { return a.id === saved; });
+                other.value = pickedOther ? saved : '';
+                other.classList.toggle('hidden', choice !== OTHER_APP);
+
+                urlField.value = settings[urlKey];
+                urlField.classList.toggle('hidden', choice !== 'url');
+
+                // Say what a press will show, for apps that can show the item.
+                var id = (choice === 'url' || (choice === OTHER_APP && !pickedOther)) ? null : saved;
+                document.getElementById(ids.hint).textContent = id ? describe(id) : '';
+            };
+
+            select.addEventListener('change', function(e) {
+                var value = e.target.value;
+                if (value === OTHER_APP) {
+                    // Nothing to save until an app is picked from the second list.
+                    choosingOther = true;
+                    picker.render();
+                    other.focus();
+                    return;
+                }
+                choosingOther = false;
+                settings[appKey] = value;
+                save();
+                picker.render();
+                if (value === 'url') urlField.focus();
+            });
+            other.addEventListener('change', function(e) {
+                settings[appKey] = e.target.value;
+                save();
+                picker.render();
+            });
+            urlField.addEventListener('change', function(e) {
+                settings[urlKey] = e.target.value.trim();
+                save();
+            });
         }
+
+        var eventPicker = new OpenPicker(
+            { select: 'openApp', other: 'otherApp', url: 'openURL', hint: 'openHint' },
+            'openApp', 'openURL', 'com.apple.iCal',
+            function(id) {
+                var app = findChoice(id);
+                if (app && app.opens === 'event') return 'Opens the event shown on the key.';
+                if (app && app.opens === 'day') return 'Opens the day of the event shown on the key.';
+                return '';
+            });
+        var reminderPicker = new OpenPicker(
+            { select: 'openReminderApp', other: 'otherReminderApp', url: 'openReminderURL', hint: 'openReminderHint' },
+            'openReminderApp', 'openReminderURL', 'com.apple.reminders',
+            function(id) {
+                if (id === 'com.apple.reminders' || id === 'com.apple.iCal') return 'Opens the reminder in Reminders.';
+                if (id === 'com.flexibits.fantastical2.mac' || id === 'web:google') return 'Opens the day the reminder is due.';
+                return '';
+            });
 
         function renderOpenApp() {
-            var select = document.getElementById('openApp');
-            select.innerHTML = '';
-            var calendars = apps.filter(function(a) { return a.group === 'calendar'; });
-            if (!apps.length) calendars = [{ id: 'com.apple.iCal', name: 'Calendar' }];
-            addGroup(select, 'Calendar apps', calendars);
-            addGroup(select, 'Meetings and tasks', apps.filter(function(a) { return a.group === 'other'; }));
-            addGroup(select, 'On the web', webCalendars);
-            addGroup(select, 'Other', [
-                { id: OTHER_APP, name: 'Another app…' },
-                { id: 'url', name: 'Web page or URL…' }
-            ]);
-            var choice = currentOpenChoice();
-            select.value = choice;
-
-            // "Another app…": every installed app.
-            var other = document.getElementById('otherApp');
-            other.innerHTML = '';
-            var placeholder = document.createElement('option');
-            placeholder.value = '';
-            placeholder.textContent = 'Choose an app…';
-            placeholder.disabled = true;
-            other.appendChild(placeholder);
-            var everyApp = allApps.slice();
-            var saved = settings.openApp;
-            var savedIsApp = saved !== 'url' && saved.indexOf('web:') !== 0;
-            if (choice === OTHER_APP && savedIsApp && allApps.length &&
-                !everyApp.some(function(a) { return a.id === saved; })) {
-                // Keep a saved app that's no longer installed visible, so the
-                // setting doesn't silently change.
-                everyApp.unshift({ id: saved, name: saved + ' (not found)' });
-            }
-            addOptions(other, everyApp);
-            var pickedOther = choice === OTHER_APP && everyApp.some(function(a) { return a.id === saved; });
-            other.value = pickedOther ? saved : '';
-            other.classList.toggle('hidden', choice !== OTHER_APP);
-
-            var urlField = document.getElementById('openURL');
-            urlField.value = settings.openURL;
-            urlField.classList.toggle('hidden', choice !== 'url');
-
-            // Say what a press will show, for apps that can show the event.
-            var app = (choice === 'url' || (choice === OTHER_APP && !pickedOther)) ? null : findChoice(saved);
-            var hint = '';
-            if (app && app.opens === 'event') hint = 'Opens the event shown on the key.';
-            if (app && app.opens === 'day') hint = 'Opens the day of the event shown on the key.';
-            document.getElementById('openHint').textContent = hint;
+            eventPicker.render();
+            reminderPicker.render();
+            // Only a key that shows reminders needs the second menu.
+            document.getElementById('reminderOpen').classList.toggle('hidden', !settings.showReminders);
+            document.getElementById('eventOpenLabel').classList.toggle('hidden', !settings.showReminders);
         }
-
-        document.getElementById('openApp').addEventListener('change', function(e) {
-            var value = e.target.value;
-            if (value === OTHER_APP) {
-                // Nothing to save until an app is picked from the second list.
-                openChoice = OTHER_APP;
-                renderOpenApp();
-                document.getElementById('otherApp').focus();
-                return;
-            }
-            openChoice = null;
-            settings.openApp = value;
-            save();
-            renderOpenApp();
-            if (value === 'url') document.getElementById('openURL').focus();
-        });
-
-        document.getElementById('otherApp').addEventListener('change', function(e) {
-            settings.openApp = e.target.value;
-            save();
-            renderOpenApp();
-        });
-
-        document.getElementById('openURL').addEventListener('change', function(e) {
-            settings.openURL = e.target.value.trim();
-            save();
-        });
 
         // MARK: No-events image
 

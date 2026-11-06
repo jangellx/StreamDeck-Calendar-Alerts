@@ -11,8 +11,8 @@ import AppKit
 //                                (Fantastical has no link to a single event)
 //   Google Calendar  its day     https://calendar.google.com/calendar/r/day/<y>/<m>/<d>
 //
-// A reminder opens in Reminders, at the reminder, when the key is set to
-// Calendar or Reminders (x-apple-reminderkit://REMCDReminder/<calendarItemIdentifier>,
+// A reminder opens in Reminders, at the reminder, when its key is set to
+// Reminders (or Calendar) (x-apple-reminderkit://REMCDReminder/<calendarItemIdentifier>,
 // undocumented). Fantastical and Google Calendar show its day.
 //
 // Other apps and web calendars are simply opened.
@@ -23,7 +23,7 @@ enum AppLauncher {
     private static let fantasticalID = "com.flexibits.fantastical2.mac"
     private static let busyCalIDs: Set<String> = ["com.busymac.busycal3", "com.busymac.busycal-setapp"]
     private static let notionCalendarID = "com.cron.electron"
-    private static let remindersID = "com.apple.reminders"
+    static let remindersID = "com.apple.reminders"
 
     // Popular Mac apps offered at the top of the menu when they're installed.
     // Any other app that opens webcal: links is added to the calendar group too.

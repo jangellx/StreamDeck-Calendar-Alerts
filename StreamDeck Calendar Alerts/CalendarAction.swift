@@ -16,6 +16,8 @@ final class CalendarAction {
     private var selectedCalendarIDs: Set<String> = []          // empty = all calendars
     private var openApp = AppLauncher.appleCalendarID          // bundle ID, or AppLauncher.urlChoice
     private var openURL = ""
+    private var openReminderApp = AppLauncher.remindersID      // the same, for a reminder on the key
+    private var openReminderURL = ""
     private var noEventsStyle = "moon"                          // see ButtonImageRenderer.renderNoEvents
     private var noEventsMessage = ""                            // the user's words for "message"
     private var noEventsImage = ""                              // data: URL for "custom"
@@ -58,6 +60,8 @@ final class CalendarAction {
         selectedCalendarIDs = Set(settings["selectedCalendars"] as? [String] ?? [])
         openApp       = settings["openApp"] as? String ?? AppLauncher.appleCalendarID
         openURL       = settings["openURL"] as? String ?? ""
+        openReminderApp = settings["openReminderApp"] as? String ?? AppLauncher.remindersID
+        openReminderURL = settings["openReminderURL"] as? String ?? ""
         noEventsStyle = settings["noEventsStyle"] as? String ?? "moon"
         noEventsMessage = settings["noEventsMessage"] as? String ?? ""
         noEventsImage = settings["noEventsImage"] as? String ?? ""
@@ -237,9 +241,14 @@ final class CalendarAction {
         ])
     }
 
-    // Opens the chosen app, showing the event on the key where the app supports it.
+    // Opens the app chosen for what's on the key (events and reminders each have
+    // their own), showing the item where the app supports it.
     func openConfiguredApp() {
-        AppLauncher.open(choice: openApp, url: openURL, event: currentEvent)
+        if currentEvent?.isReminder == true {
+            AppLauncher.open(choice: openReminderApp, url: openReminderURL, event: currentEvent)
+        } else {
+            AppLauncher.open(choice: openApp, url: openURL, event: currentEvent)
+        }
     }
 
     // MARK: - Pressing the key
