@@ -252,7 +252,7 @@ final class CalendarServiceRunner {
                     "externalIdentifier": event.calendarItemExternalIdentifier ?? "",
                     "calendarTitle": event.calendar?.title ?? "",
                     "accountEmail": Self.accountEmail(for: event.calendar) ?? "",
-                    // Held or double-tapped, the key joins this meeting.
+                    // Held or double-pressed, the key joins this meeting.
                     "meetingURL": Self.meetingLink(in: [event.url?.absoluteString, event.location, event.notes]) ?? ""
                 ]
             }

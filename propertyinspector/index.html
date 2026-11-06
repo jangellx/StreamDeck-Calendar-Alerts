@@ -163,7 +163,7 @@
     <select id="otherApp" class="hidden"></select>
     <input id="openURL" type="text" class="hidden" placeholder="e.g. calendar.google.com" spellcheck="false">
     <div class="hint" id="openHint"></div>
-    <label class="press-row">Tapping the key
+    <label class="press-row">Pressing the key
         <select id="swapEventPress">
             <option value="open">Opens the event</option>
             <option value="swap">Joins the meeting</option>
@@ -176,7 +176,7 @@
         <select id="otherReminderApp" class="hidden"></select>
         <input id="openReminderURL" type="text" class="hidden" placeholder="e.g. todoist.com" spellcheck="false">
         <div class="hint" id="openReminderHint"></div>
-        <label class="press-row">Tapping the key
+        <label class="press-row">Pressing the key
             <select id="swapReminderPress">
                 <option value="open">Opens the reminder</option>
                 <option value="swap">Marks it done</option>
@@ -230,8 +230,8 @@
             showReminders: false,       // reminders due today
             selectedReminderLists: [],  // empty means "all lists"
             showTimed: true,            // events and reminders at a set time
-            swapEventPress: false,      // tap joins the meeting; hold or double-tap opens the app
-            swapReminderPress: false,   // tap marks the reminder done; hold or double-tap opens the app
+            swapEventPress: false,      // a press joins the meeting; hold or double press opens the app
+            swapReminderPress: false,   // a press marks the reminder done; hold or double press opens the app
             openApp: 'com.apple.iCal',  // a bundle ID, a 'web:' id, or 'url'
             openURL: '',
             openReminderApp: 'com.apple.reminders',  // the same, for a reminder on the key
@@ -749,9 +749,9 @@
             document.getElementById('eventOpenLabel').classList.toggle('hidden', !settings.showReminders);
         }
 
-        // MARK: Tap, hold and double-tap
+        // MARK: Press, hold and double-press
 
-        var SECOND = 'hold the key or tap it twice';
+        var SECOND = 'hold the key or double-press it';
 
         function renderPress() {
             var swapE = settings.swapEventPress, swapR = settings.swapReminderPress;
@@ -760,7 +760,7 @@
             // What the other press does.
             var other = SECOND.charAt(0).toUpperCase() + SECOND.slice(1);
             document.getElementById('eventPressHint').textContent = swapE
-                ? other + ' to open the event. An event with no meeting link opens with a tap too.'
+                ? other + ' to open the event. An event with no meeting link opens with a single press too.'
                 : other + ' to join its Zoom, Google Meet, Teams, Webex or other video meeting, if it has a link.';
             document.getElementById('reminderPressHint').textContent = (swapR
                 ? other + ' to open the reminder.'

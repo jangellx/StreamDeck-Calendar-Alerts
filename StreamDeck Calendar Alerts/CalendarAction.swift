@@ -33,22 +33,22 @@ final class CalendarAction {
 
     static let defaultAlertMinutes: Set<Int> = [60, 30, 15, 5]
 
-    // Pressing the key. A tap opens the app. Holding the key or tapping it twice
+    // Pressing the key opens the app. Holding the key or double-pressing it
     // marks a reminder on it done (doing that again while "Done" shows marks it not
     // done), or joins the video meeting of an event on it. Each kind can swap the
-    // two, so a tap does the second thing. Stream Deck only reports the key going
-    // down and up, so holds and double taps are timed here.
-    private var swapEventPress = false                          // tap joins the meeting
-    private var swapReminderPress = false                       // tap marks the reminder done
+    // two, so a press does the second thing. Stream Deck only reports the key going
+    // down and up, so holds and double presses are timed here.
+    private var swapEventPress = false                          // a press joins the meeting
+    private var swapReminderPress = false                       // a press marks the reminder done
     static let holdTime: TimeInterval = 0.5
-    static let doubleTapTime: TimeInterval = 0.3
+    static let doublePressTime: TimeInterval = 0.3
     static let undoTime: TimeInterval = 5
     private var holdTimer: Timer?
-    private var tapTimer: Timer?                                // a tap waiting to see if a second one follows
+    private var pressTimer: Timer?                                // a press waiting to see if a second one follows
     private var holdHandled = false
 
     // A reminder marked done from this key: shown as done for a few seconds (when
-    // a second hold or double tap undoes it), and kept off the key afterwards
+    // a second hold or double press undoes it), and kept off the key afterwards
     // until the helper's next file no longer lists it.
     private var doneReminder: SharedEvent?
     private var doneTimer: Timer?
@@ -116,7 +116,7 @@ final class CalendarAction {
         minuteTimer = nil
         stopFlashing()
         holdTimer?.invalidate()
-        tapTimer?.invalidate()
+        pressTimer?.invalidate()
         doneTimer?.invalidate()
     }
 
@@ -258,7 +258,7 @@ final class CalendarAction {
 
     // MARK: - Pressing the key
 
-    // The reminder a hold or double tap acts on, if one is on the key.
+    // The reminder a hold or double press acts on, if one is on the key.
     private var reminderOnKey: SharedEvent? {
         doneReminder ?? (currentEvent?.isReminder == true ? currentEvent : nil)
     }
@@ -269,16 +269,16 @@ final class CalendarAction {
         return link
     }
 
-    // Whether a hold or double tap would do something other than a tap. If not,
-    // a tap acts at once instead of waiting to see if a second tap follows.
+    // Whether a hold or double press would do something other than a press. If not,
+    // a press acts at once instead of waiting to see if a second one follows.
     private var hasSecondAction: Bool { reminderOnKey != nil || meetingOnKey != nil }
 
-    private enum Press { case tap, holdOrDoubleTap }
+    private enum Press { case single, holdOrDoublePress }
 
     private func perform(_ press: Press) {
         if reminderOnKey != nil {
-            (press == .tap) != swapReminderPress ? openConfiguredApp() : toggleReminder()
-        } else if let link = meetingOnKey, (press == .tap) == swapEventPress {
+            (press == .single) != swapReminderPress ? openConfiguredApp() : toggleReminder()
+        } else if let link = meetingOnKey, (press == .single) == swapEventPress {
             AppLauncher.joinMeeting(link)
         } else {
             openConfiguredApp()
@@ -292,9 +292,9 @@ final class CalendarAction {
         holdTimer = Timer.scheduledTimer(withTimeInterval: Self.holdTime, repeats: false) { [weak self] _ in
             guard let self else { return }
             self.holdHandled = true
-            self.tapTimer?.invalidate()
-            self.tapTimer = nil
-            self.perform(.holdOrDoubleTap)
+            self.pressTimer?.invalidate()
+            self.pressTimer = nil
+            self.perform(.holdOrDoublePress)
         }
     }
 
@@ -303,19 +303,19 @@ final class CalendarAction {
         holdTimer = nil
         if holdHandled { return }
         guard hasSecondAction else {
-            perform(.tap)
+            perform(.single)
             return
         }
-        if tapTimer != nil {
-            // The second tap of a double tap.
-            tapTimer?.invalidate()
-            tapTimer = nil
-            perform(.holdOrDoubleTap)
+        if pressTimer != nil {
+            // The second press of a double press.
+            pressTimer?.invalidate()
+            pressTimer = nil
+            perform(.holdOrDoublePress)
             return
         }
-        tapTimer = Timer.scheduledTimer(withTimeInterval: Self.doubleTapTime, repeats: false) { [weak self] _ in
-            self?.tapTimer = nil
-            self?.perform(.tap)
+        pressTimer = Timer.scheduledTimer(withTimeInterval: Self.doublePressTime, repeats: false) { [weak self] _ in
+            self?.pressTimer = nil
+            self?.perform(.single)
         }
     }
 

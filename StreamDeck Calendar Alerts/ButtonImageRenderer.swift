@@ -97,7 +97,7 @@ final class ButtonImageRenderer {
     }
 
     // A reminder just marked done from the key: checked off, on a green strip.
-    // Holding or double-tapping again while it shows marks it not done.
+    // Holding or double-pressing again while it shows marks it not done.
     func renderReminderDone(title: String) -> String {
         guard let ctx = makeKeyContext() else { return "" }
         Self.fillKeyBackground(ctx, size: size)
