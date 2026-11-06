@@ -161,7 +161,7 @@
     <select id="otherApp" class="hidden"></select>
     <input id="openURL" type="text" class="hidden" placeholder="e.g. calendar.google.com" spellcheck="false">
     <div class="hint" id="openHint"></div>
-    <div id="reminderOpen">
+    <div id="reminderOpen" class="hidden">
         <div class="sub-label">Reminders</div>
         <select id="openReminderApp"></select>
         <select id="otherReminderApp" class="hidden"></select>
@@ -723,6 +723,9 @@
         function renderOpenApp() {
             eventPicker.render();
             reminderPicker.render();
+            // Only a key that shows reminders needs the second menu, and its label.
+            document.getElementById('reminderOpen').classList.toggle('hidden', !settings.showReminders);
+            document.getElementById('eventOpenLabel').classList.toggle('hidden', !settings.showReminders);
         }
 
         // MARK: No-events image
