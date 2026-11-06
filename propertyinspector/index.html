@@ -156,13 +156,13 @@
     </div>
 
     <div class="section-label">When pressed, open</div>
-    <div id="eventOpenLabel" class="sub-label">Events in</div>
+    <div id="eventOpenLabel" class="sub-label">Calendar events</div>
     <select id="openApp"></select>
     <select id="otherApp" class="hidden"></select>
     <input id="openURL" type="text" class="hidden" placeholder="e.g. calendar.google.com" spellcheck="false">
     <div class="hint" id="openHint"></div>
-    <div id="reminderOpen" class="hidden">
-        <div class="sub-label">Reminders in</div>
+    <div id="reminderOpen">
+        <div class="sub-label">Reminders</div>
         <select id="openReminderApp"></select>
         <select id="otherReminderApp" class="hidden"></select>
         <input id="openReminderURL" type="text" class="hidden" placeholder="e.g. todoist.com" spellcheck="false">
@@ -719,9 +719,6 @@
         function renderOpenApp() {
             eventPicker.render();
             reminderPicker.render();
-            // Only a key that shows reminders needs the second menu.
-            document.getElementById('reminderOpen').classList.toggle('hidden', !settings.showReminders);
-            document.getElementById('eventOpenLabel').classList.toggle('hidden', !settings.showReminders);
         }
 
         // MARK: No-events image
