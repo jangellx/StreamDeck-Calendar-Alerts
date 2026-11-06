@@ -26,6 +26,7 @@ struct SharedEvent {
     var externalIdentifier = ""         // the iCalendar UID, shared with the server
     var calendarTitle = ""
     var accountEmail = ""               // empty when macOS doesn't say
+    var meetingURL = ""                 // a Zoom, Meet, Teams… link found in the event, if any
 
     // eventIdentifier is shared by every occurrence of a recurring event, so
     // include the start time to tell two occurrences on the same day apart.
@@ -116,7 +117,8 @@ enum CalendarManager {
                 calendarItemIdentifier: dict["calendarItemIdentifier"] as? String ?? "",
                 externalIdentifier: dict["externalIdentifier"] as? String ?? "",
                 calendarTitle: dict["calendarTitle"] as? String ?? "",
-                accountEmail: dict["accountEmail"] as? String ?? ""
+                accountEmail: dict["accountEmail"] as? String ?? "",
+                meetingURL: dict["meetingURL"] as? String ?? ""
             )
         }
     }

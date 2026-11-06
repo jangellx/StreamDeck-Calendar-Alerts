@@ -158,6 +158,36 @@ enum AppLauncher {
         }
     }
 
+    // Joins the event's video meeting. Zoom and Teams links go straight to their
+    // apps when installed, rather than through a browser page that hands off.
+    static func joinMeeting(_ link: String) {
+        guard var url = URL(string: link), url.scheme == "https" else { return }
+        if let host = url.host?.lowercased(), host.hasSuffix("zoom.us") || host.hasSuffix("zoomgov.com"),
+           NSWorkspace.shared.urlForApplication(withBundleIdentifier: "us.zoom.xos") != nil,
+           let app = zoomAppLink(url) {
+            url = app
+        } else if url.host?.lowercased() == "teams.microsoft.com",
+                  NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.microsoft.teams2") != nil,
+                  let app = URL(string: "msteams:" + url.absoluteString.dropFirst("https://teams.microsoft.com".count)) {
+            url = app
+        }
+        NSWorkspace.shared.open(url)
+    }
+
+    // https://us02web.zoom.us/j/123456789?pwd=abc → zoommtg://us02web.zoom.us/join?confno=123456789&pwd=abc
+    private static func zoomAppLink(_ url: URL) -> URL? {
+        let parts = url.pathComponents   // ["/", "j", "123456789"]
+        guard parts.count >= 3, parts[1] == "j", let host = url.host,
+              var components = URLComponents(string: "zoommtg://\(host)/join") else { return nil }
+        var query = [URLQueryItem(name: "action", value: "join"), URLQueryItem(name: "confno", value: parts[2])]
+        if let pwd = URLComponents(url: url, resolvingAgainstBaseURL: false)?
+            .queryItems?.first(where: { $0.name == "pwd" })?.value {
+            query.append(URLQueryItem(name: "pwd", value: pwd))
+        }
+        components.queryItems = query
+        return components.url
+    }
+
     static func eventLink(for bundleID: String, event: SharedEvent) -> URL? {
         if event.isReminder {
             switch bundleID {

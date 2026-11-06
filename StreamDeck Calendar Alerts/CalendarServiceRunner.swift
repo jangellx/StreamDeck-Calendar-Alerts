@@ -251,7 +251,9 @@ final class CalendarServiceRunner {
                     "calendarItemIdentifier": event.calendarItemIdentifier,
                     "externalIdentifier": event.calendarItemExternalIdentifier ?? "",
                     "calendarTitle": event.calendar?.title ?? "",
-                    "accountEmail": Self.accountEmail(for: event.calendar) ?? ""
+                    "accountEmail": Self.accountEmail(for: event.calendar) ?? "",
+                    // Held or double-tapped, the key joins this meeting.
+                    "meetingURL": Self.meetingLink(in: [event.url?.absoluteString, event.location, event.notes]) ?? ""
                 ]
             }
         CalendarManager.writeJSON(events + reminderRecords, to: CalendarManager.eventsURL)
@@ -270,6 +272,36 @@ final class CalendarServiceRunner {
             return String(description[range])
         }
         return source.title.contains("@") ? source.title : nil
+    }
+
+    // Video meeting links the key can join, by service. Checked in order in the
+    // event's URL, then its location, then its notes; the first match wins.
+    private static let meetingPatterns: [NSRegularExpression] = [
+        #"https://(?:[a-z0-9-]+\.)?zoom(?:gov)?\.(?:us|com|com\.cn)/(?:j|my|w|s|wc/join)/[^\s"'<>)\]]+"#,   // Zoom
+        #"https://meet\.google\.com/[a-z]{3,}-[a-z]{3,}-[a-z]{3,}"#,                                         // Google Meet
+        #"https://teams\.microsoft\.com/(?:l/meetup-join|meet)/[^\s"'<>)\]]+"#,                             // Microsoft Teams
+        #"https://teams\.live\.com/meet/[^\s"'<>)\]]+"#,                                                   // Teams (free)
+        #"https://(?:[a-z0-9-]+\.)?webex\.com/(?:meet|join|[a-z0-9-]+/j\.php|wbxmjs)[^\s"'<>)\]]*"#,       // Webex
+        #"https://(?:global\.gotomeeting\.com/join|meet\.goto\.com|app\.goto\.com/meeting)/[^\s"'<>)\]]+"#,  // GoTo Meeting
+        #"https://(?:[a-z0-9-]+\.)?whereby\.com/[^\s"'<>)\]]+"#,                                           // Whereby
+        #"https://meet\.jit\.si/[^\s"'<>)\]]+"#,                                                           // Jitsi Meet
+        #"https://(?:app\.)?chime\.aws/[0-9]+[^\s"'<>)\]]*"#,                                              // Amazon Chime
+        #"https://facetime\.apple\.com/join[^\s"'<>)\]]+"#,                                                // FaceTime
+        #"https://app\.slack\.com/huddle/[^\s"'<>)\]]+"#,                                                  // Slack huddle
+    ].compactMap { try? NSRegularExpression(pattern: $0, options: .caseInsensitive) }
+
+    static func meetingLink(in fields: [String?]) -> String? {
+        for case let text? in fields where !text.isEmpty {
+            let range = NSRange(text.startIndex..., in: text)
+            for pattern in meetingPatterns {
+                if let match = pattern.firstMatch(in: text, range: range),
+                   let found = Range(match.range, in: text) {
+                    // Links in notes often end a sentence.
+                    return String(text[found]).trimmingCharacters(in: CharacterSet(charactersIn: ".,;:!?"))
+                }
+            }
+        }
+        return nil
     }
 
     // Meetings that were cancelled, or that you declined, shouldn't raise alerts.

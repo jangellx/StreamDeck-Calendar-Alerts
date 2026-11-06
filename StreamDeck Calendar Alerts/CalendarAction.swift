@@ -33,10 +33,13 @@ final class CalendarAction {
 
     static let defaultAlertMinutes: Set<Int> = [60, 30, 15, 5]
 
-    // Pressing the key. A tap opens the app. When a reminder is on the key, holding
-    // it or tapping twice marks the reminder done, and doing that again while
-    // "Done" shows marks it not done. Stream Deck only reports the key going down
-    // and up, so holds and double taps are timed here.
+    // Pressing the key. A tap opens the app. Holding the key or tapping it twice
+    // marks a reminder on it done (doing that again while "Done" shows marks it not
+    // done), or joins the video meeting of an event on it. Each kind can swap the
+    // two, so a tap does the second thing. Stream Deck only reports the key going
+    // down and up, so holds and double taps are timed here.
+    private var swapEventPress = false                          // tap joins the meeting
+    private var swapReminderPress = false                       // tap marks the reminder done
     static let holdTime: TimeInterval = 0.5
     static let doubleTapTime: TimeInterval = 0.3
     static let undoTime: TimeInterval = 5
@@ -74,6 +77,8 @@ final class CalendarAction {
         showReminders = settings["showReminders"] as? Bool ?? false
         selectedReminderListIDs = Set(settings["selectedReminderLists"] as? [String] ?? [])
         showTimed     = settings["showTimed"] as? Bool ?? true
+        swapEventPress = settings["swapEventPress"] as? Bool ?? false
+        swapReminderPress = settings["swapReminderPress"] as? Bool ?? false
         if showReminders { CalendarManager.requestReminders() }
         if minuteTimer != nil { update() }
     }
@@ -258,16 +263,38 @@ final class CalendarAction {
         doneReminder ?? (currentEvent?.isReminder == true ? currentEvent : nil)
     }
 
+    // The meeting link of the event on the key, if it has one.
+    private var meetingOnKey: String? {
+        guard reminderOnKey == nil, let link = currentEvent?.meetingURL, !link.isEmpty else { return nil }
+        return link
+    }
+
+    // Whether a hold or double tap would do something other than a tap. If not,
+    // a tap acts at once instead of waiting to see if a second tap follows.
+    private var hasSecondAction: Bool { reminderOnKey != nil || meetingOnKey != nil }
+
+    private enum Press { case tap, holdOrDoubleTap }
+
+    private func perform(_ press: Press) {
+        if reminderOnKey != nil {
+            (press == .tap) != swapReminderPress ? openConfiguredApp() : toggleReminder()
+        } else if let link = meetingOnKey, (press == .tap) == swapEventPress {
+            AppLauncher.joinMeeting(link)
+        } else {
+            openConfiguredApp()
+        }
+    }
+
     func keyDown() {
         holdHandled = false
         holdTimer?.invalidate()
-        guard reminderOnKey != nil else { return }
+        guard hasSecondAction else { return }
         holdTimer = Timer.scheduledTimer(withTimeInterval: Self.holdTime, repeats: false) { [weak self] _ in
             guard let self else { return }
             self.holdHandled = true
             self.tapTimer?.invalidate()
             self.tapTimer = nil
-            self.toggleReminder()
+            self.perform(.holdOrDoubleTap)
         }
     }
 
@@ -275,21 +302,20 @@ final class CalendarAction {
         holdTimer?.invalidate()
         holdTimer = nil
         if holdHandled { return }
-        // Nothing to mark done: open the app straight away.
-        guard reminderOnKey != nil else {
-            openConfiguredApp()
+        guard hasSecondAction else {
+            perform(.tap)
             return
         }
         if tapTimer != nil {
             // The second tap of a double tap.
             tapTimer?.invalidate()
             tapTimer = nil
-            toggleReminder()
+            perform(.holdOrDoubleTap)
             return
         }
         tapTimer = Timer.scheduledTimer(withTimeInterval: Self.doubleTapTime, repeats: false) { [weak self] _ in
             self?.tapTimer = nil
-            self?.openConfiguredApp()
+            self?.perform(.tap)
         }
     }
 

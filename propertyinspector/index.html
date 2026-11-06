@@ -111,6 +111,8 @@
         .link { color: #9cf; cursor: pointer; text-decoration: underline; }
         .hidden { display: none; }
         .sub-label { color: #bbb; margin: 8px 0 4px; }
+        .press-swap { margin-top: 4px; }
+        .press-hint { color: #999; font-size: 8pt; line-height: 1.4; padding-left: 20px; }
         #eventOpenLabel { margin-top: 0; }
         #reminderOpen .sub-label { margin-top: 12px; }
         .summary {
@@ -134,7 +136,6 @@
     <div id="reminderOptions" class="indented hidden">
         <div id="reminderList"></div>
         <div class="hint" id="reminderHint"></div>
-        <div class="hint">Hold the key, or tap it twice, to mark the reminder on it done.</div>
     </div>
 
     <div class="section-label">Scheduled and all-day</div>
@@ -161,12 +162,16 @@
     <select id="otherApp" class="hidden"></select>
     <input id="openURL" type="text" class="hidden" placeholder="e.g. calendar.google.com" spellcheck="false">
     <div class="hint" id="openHint"></div>
+    <label class="calendar-row press-swap"><input type="checkbox" id="swapEventPress"> Swap: tap joins the meeting</label>
+    <div class="press-hint" id="eventPressHint"></div>
     <div id="reminderOpen" class="hidden">
         <div class="sub-label">Reminders</div>
         <select id="openReminderApp"></select>
         <select id="otherReminderApp" class="hidden"></select>
         <input id="openReminderURL" type="text" class="hidden" placeholder="e.g. todoist.com" spellcheck="false">
         <div class="hint" id="openReminderHint"></div>
+        <label class="calendar-row press-swap"><input type="checkbox" id="swapReminderPress"> Swap: tap marks it done</label>
+        <div class="press-hint" id="reminderPressHint"></div>
     </div>
 
     <div class="section-label">When there are no more events</div>
@@ -214,6 +219,8 @@
             showReminders: false,       // reminders due today
             selectedReminderLists: [],  // empty means "all lists"
             showTimed: true,            // events and reminders at a set time
+            swapEventPress: false,      // tap joins the meeting; hold or double-tap opens the app
+            swapReminderPress: false,   // tap marks the reminder done; hold or double-tap opens the app
             openApp: 'com.apple.iCal',  // a bundle ID, a 'web:' id, or 'url'
             openURL: '',
             openReminderApp: 'com.apple.reminders',  // the same, for a reminder on the key
@@ -241,6 +248,8 @@
             settings.showReminders = s.showReminders === true;
             settings.selectedReminderLists = s.selectedReminderLists || [];
             settings.showTimed = s.showTimed !== false;
+            settings.swapEventPress = s.swapEventPress === true;
+            settings.swapReminderPress = s.swapReminderPress === true;
             settings.openApp = s.openApp || 'com.apple.iCal';
             settings.openURL = s.openURL || '';
             settings.openReminderApp = s.openReminderApp || 'com.apple.reminders';
@@ -723,10 +732,40 @@
         function renderOpenApp() {
             eventPicker.render();
             reminderPicker.render();
+            renderPress();
             // Only a key that shows reminders needs the second menu, and its label.
             document.getElementById('reminderOpen').classList.toggle('hidden', !settings.showReminders);
             document.getElementById('eventOpenLabel').classList.toggle('hidden', !settings.showReminders);
         }
+
+        // MARK: Tap, hold and double-tap
+
+        var SECOND = 'hold the key or tap it twice';
+
+        function renderPress() {
+            var swapE = settings.swapEventPress, swapR = settings.swapReminderPress;
+            document.getElementById('swapEventPress').checked = swapE;
+            document.getElementById('swapReminderPress').checked = swapR;
+            var join = 'join its Zoom, Google Meet, Teams, Webex or other video meeting';
+            document.getElementById('eventPressHint').textContent = swapE
+                ? 'Tap to ' + join + '; ' + SECOND + ' to open the app. An event with no meeting link just opens the app.'
+                : 'Tap to open the app; ' + SECOND + ' to ' + join + ', if the event has a link.';
+            document.getElementById('reminderPressHint').textContent = (swapR
+                ? 'Tap to mark the reminder done; ' + SECOND + ' to open the app.'
+                : 'Tap to open the app; ' + SECOND + ' to mark the reminder done.') +
+                ' Do it again while the key shows Done to undo.';
+        }
+
+        document.getElementById('swapEventPress').addEventListener('change', function(e) {
+            settings.swapEventPress = e.target.checked;
+            renderPress();
+            save();
+        });
+        document.getElementById('swapReminderPress').addEventListener('change', function(e) {
+            settings.swapReminderPress = e.target.checked;
+            renderPress();
+            save();
+        });
 
         // MARK: No-events image
 
