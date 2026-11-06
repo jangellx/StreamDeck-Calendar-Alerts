@@ -105,6 +105,8 @@ th{font-size:13px;text-transform:uppercase;letter-spacing:.04em;color:var(--mute
 td:first-child{font-weight:600;padding-right:16px;white-space:nowrap}
 td{color:var(--muted)}
 td:first-child{color:var(--text)}
+.needs a,td:first-child a{color:inherit;text-decoration-color:var(--line);text-underline-offset:3px}
+.needs a:hover,td:first-child a:hover{color:var(--link)}
 
 /* When the day is done */
 .choices{display:flex;flex-wrap:wrap;justify-content:center;gap:14px;--n:7}
@@ -146,12 +148,12 @@ footer nav a{margin:0 8px;white-space:nowrap;display:inline-block}
 <header class="hero">
 <img class="icon" src="images/icon.png" width="512" height="512" alt="">
 <h1>Calendar Alerts</h1>
-<p class="lead">Your next meeting on a Stream Deck key, counting down in color so you're never caught by surprise.</p>
+<p class="lead">Your next meeting on an <a href="https://www.elgato.com/stream-deck">Elgato Stream Deck</a> key, counting down in color so you're never caught by surprise.</p>
 <div class="buttons">
 <a class="button primary" href="https://github.com/jangellx/StreamDeck-Calendar-Alerts/releases/latest/download/com.joeangell.calendar-alerts.streamDeckPlugin"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 3v10M5.5 8.5 10 13l4.5-4.5M4 17h12"/></svg>Download the Plugin</a>
 <a class="button plain" href="https://github.com/jangellx/StreamDeck-Calendar-Alerts">View on GitHub</a>
 </div>
-<p class="fine">Free and open source. For macOS 14 or later and Stream Deck 6.4 or later.</p>
+<p class="fine">Free and <a href="https://github.com/jangellx/StreamDeck-Calendar-Alerts">open source</a>. For <a href="https://www.apple.com/macos/">macOS</a> 14 or later and the <a href="https://www.elgato.com/downloads">Stream Deck app</a> 6.4 or later.</p>
 
 <figure class="demo" id="demo">
 <div class="housing" aria-hidden="true">
@@ -198,18 +200,18 @@ footer nav a{margin:0 8px;white-space:nowrap;display:inline-block}
 <div class="split">
 <div>
 <h2>Press the key, see the meeting</h2>
-<p>Choose what the key opens in its settings: Calendar, Fantastical, BusyCal, Outlook, Zoom, Things and the other calendar, meeting and task apps you have installed, a web calendar such as Google Calendar, Outlook on the web, Outlook.com, iCloud or Proton Calendar, any other app, or any web page.</p>
+<p>Choose what the key opens in its settings: <a href="https://support.apple.com/guide/calendar/welcome/mac">Calendar</a>, <a href="https://flexibits.com/fantastical">Fantastical</a>, <a href="https://www.busymac.com/busycal/">BusyCal</a>, <a href="https://www.microsoft.com/microsoft-365/outlook">Outlook</a>, <a href="https://www.zoom.com/">Zoom</a>, <a href="https://culturedcode.com/things/">Things</a> and the other calendar, meeting and task apps you have installed, a web calendar such as <a href="https://calendar.google.com/">Google Calendar</a>, <a href="https://outlook.office.com/calendar/">Outlook on the web</a>, <a href="https://outlook.live.com/calendar/">Outlook.com</a>, <a href="https://www.icloud.com/calendar/">iCloud</a> or <a href="https://proton.me/calendar">Proton Calendar</a>, any other app, or any web page.</p>
 <p>Where the app supports it, the press takes you to the event the key is counting down to. When there are no more events today, it just opens the app.</p>
 </div>
 <div class="table">
 <table>
 <thead><tr><th>Open in</th><th>Pressing the key shows</th></tr></thead>
 <tbody>
-<tr><td>Calendar</td><td>The event</td></tr>
-<tr><td>BusyCal</td><td>The event</td></tr>
-<tr><td>Notion Calendar</td><td>The event, for accounts where macOS knows the email address</td></tr>
-<tr><td>Fantastical</td><td>The event's day</td></tr>
-<tr><td>Google Calendar</td><td>The event's day, in the event's Google account</td></tr>
+<tr><td><a href="https://support.apple.com/guide/calendar/welcome/mac">Calendar</a></td><td>The event</td></tr>
+<tr><td><a href="https://www.busymac.com/busycal/">BusyCal</a></td><td>The event</td></tr>
+<tr><td><a href="https://www.notion.com/product/calendar">Notion Calendar</a></td><td>The event, for accounts where macOS knows the email address</td></tr>
+<tr><td><a href="https://flexibits.com/fantastical">Fantastical</a></td><td>The event's day</td></tr>
+<tr><td><a href="https://calendar.google.com/">Google Calendar</a></td><td>The event's day, in the event's Google account</td></tr>
 <tr><td>Anything else</td><td>The app or page, as it last was</td></tr>
 </tbody>
 </table>
@@ -236,13 +238,13 @@ footer nav a{margin:0 8px;white-space:nowrap;display:inline-block}
 <h2>Install in a minute</h2>
 <p class="sub">The installer is signed and notarized by Apple, so it opens like any other download.</p>
 <ul class="needs" aria-label="Requirements">
-<li>macOS 14 Sonoma or later</li>
-<li>Stream Deck app 6.4 or later</li>
-<li>Any Stream Deck with keys</li>
+<li><a href="https://www.apple.com/macos/">macOS</a> 14 Sonoma or later</li>
+<li><a href="https://www.elgato.com/downloads">Stream Deck app</a> 6.4 or later</li>
+<li>Any <a href="https://www.elgato.com/stream-deck">Stream Deck</a> with keys</li>
 </ul>
 <ol class="steps">
 <li><strong>Download the plugin.</strong> Get <a href="https://github.com/jangellx/StreamDeck-Calendar-Alerts/releases/latest/download/com.joeangell.calendar-alerts.streamDeckPlugin">com.joeangell.calendar-alerts.streamDeckPlugin</a> from the <a href="https://github.com/jangellx/StreamDeck-Calendar-Alerts/releases/latest">latest release</a>.</li>
-<li><strong>Double-click it.</strong> The Stream Deck app opens and asks to install the plugin.</li>
+<li><strong>Double-click it.</strong> The <a href="https://www.elgato.com/downloads">Stream Deck app</a> opens and asks to install the plugin.</li>
 <li><strong>Drag it onto a key.</strong> In the action list, find the <strong>Calendar Alerts</strong> group and drag <strong>Next Appointment</strong> onto a key.</li>
 <li><strong>Allow calendar access.</strong> When macOS asks whether "StreamDeck Calendar Alerts" can access your calendars, click <strong>Allow</strong>.</li>
 </ol>
@@ -258,8 +260,8 @@ footer nav a{margin:0 8px;white-space:nowrap;display:inline-block}
 <h2>Credits</h2>
 <p class="sub">Standing on the shoulders of some good ideas.</p>
 <div class="credits">
-<div class="card"><h3>The idea and the colors</h3><p>The idea, and the colors for each stage of the countdown, come from TJ Luoma's <a href="https://github.com/tjluoma/icalbuddy-km-and-stream-deck">icalbuddy-km-and-stream-deck</a>, which uses icalBuddy and Keyboard Maestro to show the time until your next meeting on a Stream Deck key.</p></div>
-<div class="card"><h3>Shortcuts, before the plugin</h3><p>Before this plugin there was a Shortcuts version, an idea that came from ringmaster's <a href="https://forum.obsidian.md/t/ical-daily-schedule-via-ios-osx-shortcut/30686">iCal Daily Schedule via iOS/OSX Shortcut</a> on the Obsidian forum.</p></div>
+<div class="card"><h3>The idea and the colors</h3><p>The idea, and the colors for each stage of the countdown, come from TJ Luoma's <a href="https://github.com/tjluoma/icalbuddy-km-and-stream-deck">icalbuddy-km-and-stream-deck</a>, which uses <a href="https://hasseg.org/icalBuddy/">icalBuddy</a> and <a href="https://www.keyboardmaestro.com/">Keyboard Maestro</a> to show the time until your next meeting on a Stream Deck key.</p></div>
+<div class="card"><h3>Shortcuts, before the plugin</h3><p>Before this plugin there was a <a href="https://support.apple.com/guide/shortcuts-mac/welcome/mac">Shortcuts</a> version, an idea that came from ringmaster's <a href="https://forum.obsidian.md/t/ical-daily-schedule-via-ios-osx-shortcut/30686">iCal Daily Schedule via iOS/OSX Shortcut</a> on the Obsidian forum.</p></div>
 <div class="card"><h3>The moon</h3><p>The moon-phase images are courtesy of NASA's Scientific Visualization Studio, from its <a href="https://svs.gsfc.nasa.gov/gallery/moonphase/">Dial-A-Moon</a> gallery, made with data from NASA's Lunar Reconnaissance Orbiter.</p></div>
 <div class="card"><h3>Perpetual<span class="soon">Coming soon</span></h3><p>The plugin icon, the smiling calendar and the infinity clock are from Perpetual, my calendar app that's coming soon, and the moon phase is worked out the way Perpetual does it. The other images are drawn in code.</p></div>
 <div class="card"><h3>Opening events</h3><p>Opening an event in Apple Calendar uses the link that <a href="https://github.com/leits/MeetingBar">MeetingBar</a> uses. The other apps' links come from their own documentation: <a href="https://flexibits.com/fantastical/help/integration">Fantastical</a>, <a href="https://www.busymac.com/docs/busycal/70621-url-handler">BusyCal</a> and <a href="https://cronhq.notion.site/Cron-API-c0ad725e3b654c64a6d3fa7ae71fa8b3">Notion Calendar</a>.</p></div>
